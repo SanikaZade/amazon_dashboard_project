@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amazon Sales — Live Dashboard</title>
+<script src="vendor/plotly.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117;
+    --panel:#141b24;
+    --panel-border:#22303c;
+    --ink:#e8edf2;
+    --muted:#8a97a3;
+    --accent:#ffb020;
+    --accent2:#37c2a0;
+    --danger:#ef6461;
+    --grid:#1e2732;
+    --card-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  body.light-mode {
+    --bg:#f0f2f5;
+    --panel:#ffffff;
+    --panel-border:#e2e8f0;
+    --ink:#1e293b;
+    --muted:#64748b;
+    --grid:#cbd5e1;
+    --card-shadow: 0 4px 20px rgba(148, 163, 184, 0.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  header{
+    padding:28px 32px 18px;
+    border-bottom:1px solid var(--panel-border);
+    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px;
+  }
+  header h1{
+    margin:0; font-size:1.6rem; letter-spacing:0.5px;
+  }
+  header h1 span{color:var(--accent);}
+  header p{margin:4px 0 0; color:var(--muted); font-size:0.85rem;}
+  .header-actions{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .kpis{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:14px; padding:22px 32px;
+  }
+  .kpi{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:10px;
+    padding:14px 16px;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s, border-color 0.3s;
+  }
+  .kpi:hover{
+    transform: translateY(-2px);
+  }
+  .kpi .label{color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;}
+  .kpi .value{font-size:1.5rem; font-weight:700; margin-top:4px;}
+  .kpi .value.accent{color:var(--accent);}
+  .kpi .value.danger{color:var(--danger);}
+  .kpi .value.good{color:var(--accent2);}
+
+  .tabs{
+    display:flex; gap:6px; padding:0 32px; border-bottom:1px solid var(--panel-border); flex-wrap:wrap;
+  }
+  .tab{
+    padding:10px 16px; cursor:pointer; color:var(--muted); font-size:0.9rem;
+    border-bottom:2px solid transparent; user-select:none;
+    font-weight: 500;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab.active{color:var(--ink); border-bottom-color:var(--accent);}
+  .tab:hover{color:var(--ink);}
+
+  .section{display:none; padding:20px 32px 40px;}
+  .section.active{display:block;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .grid1{display:grid; grid-template-columns:1fr; gap:18px;}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
+  
+  .card{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
+    padding:16px; box-shadow: var(--card-shadow);
+    transform: translateY(0);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s, border-color 0.3s;
+  }
+  .card:hover{
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  }
+  body.light-mode .card:hover{
+    box-shadow: 0 10px 25px rgba(148, 163, 184, 0.18);
+  }
+  .card h3{margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--ink); display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .card p.sub{margin:0 0 10px; color:var(--muted); font-size:0.78rem;}
+  footer{padding:18px 32px; color:var(--muted); font-size:0.75rem; border-top:1px solid var(--panel-border);}
+
+  .csv-btn{
+    background:transparent; border:1px solid var(--panel-border); color:var(--muted);
+    font-size:0.68rem; padding:3px 8px; border-radius:6px; cursor:pointer; white-space:nowrap;
+    transition: all 0.2s;
+  }
+  .csv-btn:hover{color:var(--ink); border-color:var(--accent2); background:rgba(55,194,160,0.08);}
+
+  .search-wrap{
+    position:relative; display:flex; align-items:center; min-width:220px;
+  }
+  .search-wrap input{
+    width:100%; background:var(--panel); border:1px solid var(--panel-border); color:var(--ink);
+    border-radius:8px; padding:8px 12px 8px 30px; font-size:0.85rem;
+    transition: border-color 0.2s, background-color 0.3s;
+  }
+  .search-wrap input:focus{outline:none; border-color:var(--accent2);}
+  .search-wrap svg{position:absolute; left:9px; width:14px; height:14px; stroke:var(--muted);}
+  .search-hint{color:var(--muted); font-size:0.68rem; margin-top:3px;}
+  .search-hint kbd{background:var(--panel); border:1px solid var(--panel-border); border-radius:4px; padding:0 4px; font-size:0.68rem;}
+  .no-match{color:var(--muted); font-size:0.85rem; text-align:center; padding:30px 0;}
+
+  /* Active Filter Pills */
+  .active-filters{
+    display:none; align-items:center; gap:8px; padding: 12px 32px 0; flex-wrap:wrap;
+  }
+  .active-filters.show{display:flex;}
+  .filter-pill{
+    background:rgba(55, 194, 160, 0.12); border: 1px solid var(--accent2); color: var(--accent2);
+    font-size: 0.75rem; padding: 5px 12px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px;
+    font-weight: 500; box-shadow: 0 2px 6px rgba(55, 194, 160, 0.05);
+  }
+  .filter-pill span.close{
+    cursor:pointer; font-weight:bold; font-size:0.95rem; margin-left: 2px;
+  }
+  .filter-pill span.close:hover{
+    color: var(--danger);
+  }
+
+  /* Theme toggle button styling */
+  .theme-btn {
+    background: var(--panel); border: 1px solid var(--panel-border); color: var(--ink);
+    border-radius: 8px; width: 34px; height: 34px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover {
+    border-color: var(--accent);
+    background: rgba(255, 176, 32, 0.08);
+  }
+  .theme-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+  .about-card{max-width:900px;}
+  .about-card h2{margin:0 0 6px; font-size:1.1rem;}
+  .about-card h4{margin:16px 0 6px; color:var(--accent2); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px;}
+  .about-card p{color:var(--ink); line-height:1.55; font-size:0.92rem; margin:0 0 6px;}
+  .about-card ul{margin:4px 0 0; padding-left:18px; color:var(--ink); font-size:0.9rem; line-height:1.6;}
+  .stack-pills{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
+  .stack-pills span{background:var(--panel); border:1px solid var(--panel-border); color:var(--accent);
+    padding:4px 10px; border-radius:999px; font-size:0.78rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Amazon Sales <span>· Live Dashboard</span></h1>
+    <p>128,017 orders · March–June 2022 · Charts render directly from cleaned dataset (no static images)</p>
+  </div>
+  <div class="header-actions">
+    <div>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="searchBox" type="text" placeholder="Search category, state or city…" aria-label="Search category, state, or city">
+      </div>
+      <div class="search-hint">Filters Products &amp; Geography charts · press <kbd>/</kbd> to focus</div>
+    </div>
+    <button class="theme-btn" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+      <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </button>
+  </div>
+</header>
+
+<div class="active-filters" id="activeFiltersContainer">
+  <div class="filter-pill" id="filterPill">
+    <span>Active Filter: </span><strong id="filterVal"></strong>
+    <span class="close" id="clearFilterBtn" title="Clear Filter">&times;</span>
+  </div>
+</div>
+
+<div class="kpis" id="kpiRow"></div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="about">About</div>
+  <div class="tab" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="products">Products</div>
+  <div class="tab" data-tab="fulfillment">Fulfillment &amp; Status</div>
+  <div class="tab" data-tab="geo">Geography</div>
+  <div class="tab" data-tab="customers">Customer Segmentation</div>
+  <div class="tab" data-tab="insights">Insights &amp; Recommendations</div>
+</div>
+
+<div class="section active" id="tab-about">
+  <div class="card about-card">
+    <h2>Amazon Sales Dashboard — Live Data Project</h2>
+    <p>This dashboard analyzes 128,017 real Amazon India orders from March–June 2022 to answer a
+    practical business question: <em>where is revenue coming from, and where is it leaking?</em>
+    Every number on every chart is computed live from the underlying dataset — there are no
+    static images, mock numbers, or "coming soon" placeholders.</p>
+
+    <h4>Problem it solves</h4>
+    <p>Sellers and ops teams need a fast way to see revenue trends, which product categories and
+    sizes perform best, where orders get cancelled or returned, and how fulfilment method
+    (Amazon vs. Merchant) affects that — without opening a spreadsheet. This dashboard turns a
+    128k-row CSV into an interactive, drill-able view of all of that in one page.</p>
+
+    <h4>Tech stack</h4>
+    <div class="stack-pills">
+      <span>Python (pandas / numpy)</span>
+      <span>HTML / CSS / vanilla JS</span>
+      <span>Plotly.js</span>
+      <span>Static single-file build</span>
+    </div>
+
+    <h4>Key features</h4>
+    <ul>
+      <li>23 charts across 7 sections, all rendered from a single aggregated JSON payload</li>
+      <li>Live search filtering across Products &amp; Geography charts (category, state, city)</li>
+      <li>One-click CSV export on every chart card, for pulling numbers into Excel/Sheets</li>
+      <li>Auto-hide safety net: any chart that ends up with no real data disappears instead of showing a blank box</li>
+      <li>Fully responsive layout, dark theme, tabbed navigation</li>
+    </ul>
+
+    <h4>How it's built</h4>
+    <p><code>build_dashboard.py</code> reads the CSV, computes all aggregates with pandas, writes
+    them to <code>data/dashboard_data.json</code>, then injects that JSON into
+    <code>dashboard_template.html</code> to produce this self-contained <code>dashboard.html</code>.
+    Swap in a new CSV with the same schema and re-run the script to refresh every number.</p>
+  </div>
+</div>
+
+<div class="section" id="tab-overview">
+  <div class="grid2">
+    <div class="card"><h3>Daily Orders &amp; Revenue Trend<button class="csv-btn" data-key="daily_trend" data-file="daily_orders_revenue.csv">⬇ CSV</button></h3><p class="sub">Full period, hover for exact values</p><div id="chartDaily" style="height:340px;"></div></div>
+    <div class="card"><h3>Monthly Revenue<button class="csv-btn" data-key="monthly" data-file="monthly_revenue.csv">CSV</button></h3><p class="sub">Mar–Jun 2022</p><div id="chartMonthly" style="height:340px;"></div></div>
+    <div class="card"><h3>Orders by Day of Week<button class="csv-btn" data-key="dow" data-file="orders_by_day_of_week.csv">CSV</button></h3><div id="chartDow" style="height:320px;"></div></div>
+    <div class="card"><h3>Order Volume Heatmap (Week × Day)<button class="csv-btn" data-key="weekly_heatmap" data-file="order_volume_heatmap.csv">CSV</button></h3><div id="chartHeatmap" style="height:320px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-products">
+  <div class="grid2">
+    <div class="card"><h3>Revenue by Category<button class="csv-btn" data-key="category" data-file="revenue_by_category.csv">CSV</button></h3><div id="chartCatRev" style="height:340px;"></div></div>
+    <div class="card"><h3>Orders by Category<button class="csv-btn" data-key="category" data-file="orders_by_category.csv">CSV</button></h3><div id="chartCatOrders" style="height:340px;"></div></div>
+    <div class="card"><h3>Quantity Sold by Category<button class="csv-btn" data-key="category" data-file="qty_by_category.csv">CSV</button></h3><div id="chartCatQty" style="height:340px;"></div></div>
+    <div class="card"><h3>Size Distribution<button class="csv-btn" data-key="size_dist" data-file="size_distribution.csv">CSV</button></h3><div id="chartSize" style="height:320px;"></div></div>
+    <div class="card"><h3>Category × Size Heatmap<button class="csv-btn" data-key="category_size" data-file="category_size_heatmap.csv">CSV</button></h3><div id="chartCatSize" style="height:320px;"></div></div>
+    <div class="card" style="grid-column:span 2;"><h3>Top Category–Size Combinations<button class="csv-btn" data-key="top_combos" data-file="top_category_size_combos.csv">CSV</button></h3><div id="chartCombos" style="height:360px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-fulfillment">
+  <div class="grid2">
+    <div class="card"><h3>Fulfilment Split<button class="csv-btn" data-key="fulfilment" data-file="fulfilment_split.csv">CSV</button></h3><div id="chartFulfilDonut" style="height:320px;"></div></div>
+    <div class="card"><h3>Cancellation Rate by Fulfilment<button class="csv-btn" data-key="cancel_by_fulfilment" data-file="cancellation_rate_by_fulfilment.csv">CSV</button></h3><div id="chartCancelFulfil" style="height:320px;"></div></div>
+    <div class="card"><h3>Order Status by Fulfilment<button class="csv-btn" data-key="status_by_fulfilment" data-file="order_status_by_fulfilment.csv">CSV</button></h3><div id="chartStatusFulfil" style="height:340px;"></div></div>
+    <div class="card"><h3>Shipping Level Split<button class="csv-btn" data-key="shipping_level" data-file="shipping_level_split.csv">CSV</button></h3><div id="chartShipLevel" style="height:320px;"></div></div>
+    <div class="card"><h3>Overall Status Breakdown<button class="csv-btn" data-key="status_all" data-file="overall_status_breakdown.csv">CSV</button></h3><div id="chartStatusAll" style="height:320px;"></div></div>
+    <div class="card"><h3>Return Rate by Category<button class="csv-btn" data-key="return_rate_category" data-file="return_rate_by_category.csv">CSV</button></h3><div id="chartReturnCat" style="height:320px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-geo">
+  <div class="grid2">
+    <div class="card"><h3>Top States by Revenue<button class="csv-btn" data-key="state" data-file="top_states_by_revenue.csv">CSV</button></h3><div id="chartStateRev" style="height:380px;"></div></div>
+    <div class="card"><h3>Top Cities by Revenue<button class="csv-btn" data-key="city" data-file="top_cities_by_revenue.csv">CSV</button></h3><div id="chartCity" style="height:380px;"></div></div>
+    <div class="card" style="grid-column:span 2;"><h3>Cancellation Rate — Top 15 States<button class="csv-btn" data-key="cancel_by_state" data-file="cancellation_rate_by_state.csv">CSV</button></h3><div id="chartCancelState" style="height:360px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-customers">
+  <div class="grid1">
+    <div class="card">
+      <p class="sub" style="margin:0;">This dataset has no customer ID column, so individual repeat-purchase history
+      can't be tracked. Segmentation here is built from the three customer-behavior proxies the data does support:
+      order value tier, B2B vs. B2C buying pattern, and geography — cross-referenced below.</p>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Order Value Distribution<button class="csv-btn" data-key="order_value_hist" data-file="order_value_distribution.csv">CSV</button></h3><div id="chartValueHist" style="height:340px;"></div></div>
+    <div class="card"><h3>Order Value Segments<button class="csv-btn" data-key="order_value_segment" data-file="order_value_segments.csv">CSV</button></h3><div id="chartValueSeg" style="height:340px;"></div></div>
+    <div class="card"><h3>B2B vs B2C Orders<button class="csv-btn" data-key="b2b" data-file="b2b_vs_b2c.csv">CSV</button></h3><div id="chartB2B" style="height:320px;"></div></div>
+    <div class="card"><h3>Avg Order Value by Category<button class="csv-btn" data-key="avg_order_val_category" data-file="avg_order_value_by_category.csv">CSV</button></h3><div id="chartAvgCat" style="height:320px;"></div></div>
+    <div class="card" style="grid-column:span 2;"><h3>B2B Share by State — Top 12<button class="csv-btn" data-key="b2b_by_state" data-file="b2b_share_by_state.csv">CSV</button></h3><p class="sub">Where business buyers concentrate, by revenue-ranked state</p><div id="chartB2BState" style="height:340px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-insights">
+  <div class="card about-card" style="max-width:none;">
+    <h2>Findings &amp; Recommendations</h2>
+    <p class="sub" style="margin:0 0 10px;">Computed live from the current dataset — these numbers update automatically if the CSV is refreshed and the dashboard rebuilt.</p>
+    <div id="insightsBody"></div>
+  </div>
+</div>
+
+<footer>Built from amazon_clean_Data.csv · All figures computed live from the aggregated dataset embedded in this page.</footer>
+
+<script>
+const DATA = {"kpis": {"total_orders": 128017, "total_revenue": 78313472.88, "avg_order_value": 623.132895279168, "total_qty": 115953, "cancel_rate": 14.095003007413078, "return_rate": 1.6411882796816046, "b2b_pct": 0.6772538022293914, "states": 38, "cities": 7235, "categories": 9}, "daily_trend": [{"Date": "2022-03-31", "orders": 171, "revenue": 102112.85}, {"Date": "2022-04-01", "orders": 1461, "revenue": 866488.6}, {"Date": "2022-04-02", "orders": 1549, "revenue": 912627.53}, {"Date": "2022-04-03", "orders": 1678, "revenue": 1006213.38}, {"Date": "2022-04-04", "orders": 1455, "revenue": 878194.74}, {"Date": "2022-04-05", "orders": 1604, "revenue": 947024.05}, {"Date": "2022-04-06", "orders": 1546, "revenue": 888101.26}, {"Date": "2022-04-07", "orders": 1528, "revenue": 906481.35}, {"Date": "2022-04-08", "orders": 1668, "revenue": 1013553.23}, {"Date": "2022-04-09", "orders": 1610, "revenue": 975197.48}, {"Date": "2022-04-10", "orders": 1745, "revenue": 1072485.03}, {"Date": "2022-04-11", "orders": 1550, "revenue": 943987.27}, {"Date": "2022-04-12", "orders": 1444, "revenue": 884841.03}, {"Date": "2022-04-13", "orders": 1641, "revenue": 973392.3}, {"Date": "2022-04-14", "orders": 1872, "revenue": 1113094.75}, {"Date": "2022-04-15", "orders": 1841, "revenue": 1024249.13}, {"Date": "2022-04-16", "orders": 1735, "revenue": 1002413.23}, {"Date": "2022-04-17", "orders": 1599, "revenue": 938240.9}, {"Date": "2022-04-18", "orders": 1563, "revenue": 884722.46}, {"Date": "2022-04-19", "orders": 1673, "revenue": 964704.36}, {"Date": "2022-04-20", "orders": 1840, "revenue": 1088253.41}, {"Date": "2022-04-21", "orders": 1732, "revenue": 969142.58}, {"Date": "2022-04-22", "orders": 1648, "revenue": 980092.62}, {"Date": "2022-04-23", "orders": 1805, "revenue": 1088822.62}, {"Date": "2022-04-24", "orders": 1802, "revenue": 1079869.95}, {"Date": "2022-04-25", "orders": 1655, "revenue": 974928.88}, {"Date": "2022-04-26", "orders": 1466, "revenue": 859474.66}, {"Date": "2022-04-27", "orders": 1438, "revenue": 837800.58}, {"Date": "2022-04-28", "orders": 1389, "revenue": 829063.09}, {"Date": "2022-04-29", "orders": 1431, "revenue": 823823.89}, {"Date": "2022-04-30", "orders": 1637, "revenue": 954222.43}, {"Date": "2022-05-01", "orders": 1792, "revenue": 1074136.61}, {"Date": "2022-05-02", "orders": 2055, "revenue": 1164565.06}, {"Date": "2022-05-03", "orders": 2059, "revenue": 1186349.59}, {"Date": "2022-05-04", "orders": 2004, "revenue": 1206856.17}, {"Date": "2022-05-05", "orders": 1462, "revenue": 892622.17}, {"Date": "2022-05-06", "orders": 1376, "revenue": 905681.93}, {"Date": "2022-05-07", "orders": 1427, "revenue": 909075.76}, {"Date": "2022-05-08", "orders": 1467, "revenue": 904749.06}, {"Date": "2022-05-09", "orders": 1303, "revenue": 808558.6}, {"Date": "2022-05-10", "orders": 1172, "revenue": 717626.88}, {"Date": "2022-05-11", "orders": 1172, "revenue": 735717.52}, {"Date": "2022-05-12", "orders": 1100, "revenue": 689945.26}, {"Date": "2022-05-13", "orders": 1104, "revenue": 730955.76}, {"Date": "2022-05-14", "orders": 1202, "revenue": 765122.9}, {"Date": "2022-05-15", "orders": 1397, "revenue": 894672.67}, {"Date": "2022-05-16", "orders": 1195, "revenue": 761336.91}, {"Date": "2022-05-17", "orders": 1193, "revenue": 762067.63}, {"Date": "2022-05-18", "orders": 1257, "revenue": 795403.08}, {"Date": "2022-05-19", "orders": 1201, "revenue": 775721.25}, {"Date": "2022-05-20", "orders": 1096, "revenue": 702123.01}, {"Date": "2022-05-21", "orders": 1084, "revenue": 695548.62}, {"Date": "2022-05-22", "orders": 1209, "revenue": 781590.83}, {"Date": "2022-05-23", "orders": 1178, "revenue": 753710.22}, {"Date": "2022-05-24", "orders": 1209, "revenue": 756896.39}, {"Date": "2022-05-25", "orders": 1276, "revenue": 817214.34}, {"Date": "2022-05-26", "orders": 1213, "revenue": 766978.6}, {"Date": "2022-05-27", "orders": 1287, "revenue": 812283.57}, {"Date": "2022-05-28", "orders": 1340, "revenue": 854963.6}, {"Date": "2022-05-29", "orders": 1293, "revenue": 813208.49}, {"Date": "2022-05-30", "orders": 1256, "revenue": 816537.77}, {"Date": "2022-05-31", "orders": 1378, "revenue": 896932.09}, {"Date": "2022-06-01", "orders": 1514, "revenue": 933743.21}, {"Date": "2022-06-02", "orders": 1404, "revenue": 893416.82}, {"Date": "2022-06-03", "orders": 1217, "revenue": 735393.19}, {"Date": "2022-06-04", "orders": 1427, "revenue": 890461.1}, {"Date": "2022-06-05", "orders": 1577, "revenue": 988323.03}, {"Date": "2022-06-06", "orders": 1525, "revenue": 951931.13}, {"Date": "2022-06-07", "orders": 1527, "revenue": 963814.26}, {"Date": "2022-06-08", "orders": 1580, "revenue": 972290.09}, {"Date": "2022-06-09", "orders": 1558, "revenue": 955066.52}, {"Date": "2022-06-10", "orders": 1263, "revenue": 796744.94}, {"Date": "2022-06-11", "orders": 1361, "revenue": 859686.34}, {"Date": "2022-06-12", "orders": 1564, "revenue": 955534.82}, {"Date": "2022-06-13", "orders": 1394, "revenue": 877461.89}, {"Date": "2022-06-14", "orders": 1424, "revenue": 896196.01}, {"Date": "2022-06-15", "orders": 1252, "revenue": 789208.32}, {"Date": "2022-06-16", "orders": 1250, "revenue": 778372.5}, {"Date": "2022-06-17", "orders": 1161, "revenue": 746240.1}, {"Date": "2022-06-18", "orders": 1187, "revenue": 740333.71}, {"Date": "2022-06-19", "orders": 1174, "revenue": 727208.6}, {"Date": "2022-06-20", "orders": 1229, "revenue": 753247.91}, {"Date": "2022-06-21", "orders": 1306, "revenue": 801420.44}, {"Date": "2022-06-22", "orders": 1293, "revenue": 775910.64}, {"Date": "2022-06-23", "orders": 1079, "revenue": 651739.48}, {"Date": "2022-06-24", "orders": 1024, "revenue": 629485.29}, {"Date": "2022-06-25", "orders": 1024, "revenue": 652651.58}, {"Date": "2022-06-26", "orders": 1207, "revenue": 773763.02}, {"Date": "2022-06-27", "orders": 1110, "revenue": 713388.67}, {"Date": "2022-06-28", "orders": 1198, "revenue": 767433.53}, {"Date": "2022-06-29", "orders": 655, "revenue": 410233.76}], "monthly": [{"Order_Month": "March", "Order_MonthNum": 3, "orders": 171, "revenue": 102112.85}, {"Order_Month": "April", "Order_MonthNum": 4, "orders": 48605, "revenue": 28681506.79}, {"Order_Month": "May", "Order_MonthNum": 5, "orders": 41757, "revenue": 26149152.34}, {"Order_Month": "June", "Order_MonthNum": 6, "orders": 37484, "revenue": 23380700.9}], "dow": [{"Order_DayOfWeek": "Monday", "orders": 18468, "revenue": 11282571.51}, {"Order_DayOfWeek": "Tuesday", "orders": 18653, "revenue": 11404780.92}, {"Order_DayOfWeek": "Wednesday", "orders": 18468, "revenue": 11224124.68}, {"Order_DayOfWeek": "Thursday", "orders": 16959, "revenue": 10323757.22}, {"Order_DayOfWeek": "Friday", "orders": 17577, "revenue": 10767115.26}, {"Order_DayOfWeek": "Saturday", "orders": 18388, "revenue": 11301126.9}, {"Order_DayOfWeek": "Sunday", "orders": 19504, "revenue": 12009996.39}], "weekly_heatmap": [{"Order_Week": 13, "Order_DayOfWeek": "Friday", "count": 1461}, {"Order_Week": 13, "Order_DayOfWeek": "Saturday", "count": 1549}, {"Order_Week": 13, "Order_DayOfWeek": "Sunday", "count": 1678}, {"Order_Week": 13, "Order_DayOfWeek": "Thursday", "count": 171}, {"Order_Week": 14, "Order_DayOfWeek": "Friday", "count": 1668}, {"Order_Week": 14, "Order_DayOfWeek": "Monday", "count": 1455}, {"Order_Week": 14, "Order_DayOfWeek": "Saturday", "count": 1610}, {"Order_Week": 14, "Order_DayOfWeek": "Sunday", "count": 1745}, {"Order_Week": 14, "Order_DayOfWeek": "Thursday", "count": 1528}, {"Order_Week": 14, "Order_DayOfWeek": "Tuesday", "count": 1604}, {"Order_Week": 14, "Order_DayOfWeek": "Wednesday", "count": 1546}, {"Order_Week": 15, "Order_DayOfWeek": "Friday", "count": 1841}, {"Order_Week": 15, "Order_DayOfWeek": "Monday", "count": 1550}, {"Order_Week": 15, "Order_DayOfWeek": "Saturday", "count": 1735}, {"Order_Week": 15, "Order_DayOfWeek": "Sunday", "count": 1599}, {"Order_Week": 15, "Order_DayOfWeek": "Thursday", "count": 1872}, {"Order_Week": 15, "Order_DayOfWeek": "Tuesday", "count": 1444}, {"Order_Week": 15, "Order_DayOfWeek": "Wednesday", "count": 1641}, {"Order_Week": 16, "Order_DayOfWeek": "Friday", "count": 1648}, {"Order_Week": 16, "Order_DayOfWeek": "Monday", "count": 1563}, {"Order_Week": 16, "Order_DayOfWeek": "Saturday", "count": 1805}, {"Order_Week": 16, "Order_DayOfWeek": "Sunday", "count": 1802}, {"Order_Week": 16, "Order_DayOfWeek": "Thursday", "count": 1732}, {"Order_Week": 16, "Order_DayOfWeek": "Tuesday", "count": 1673}, {"Order_Week": 16, "Order_DayOfWeek": "Wednesday", "count": 1840}, {"Order_Week": 17, "Order_DayOfWeek": "Friday", "count": 1431}, {"Order_Week": 17, "Order_DayOfWeek": "Monday", "count": 1655}, {"Order_Week": 17, "Order_DayOfWeek": "Saturday", "count": 1637}, {"Order_Week": 17, "Order_DayOfWeek": "Sunday", "count": 1792}, {"Order_Week": 17, "Order_DayOfWeek": "Thursday", "count": 1389}, {"Order_Week": 17, "Order_DayOfWeek": "Tuesday", "count": 1466}, {"Order_Week": 17, "Order_DayOfWeek": "Wednesday", "count": 1438}, {"Order_Week": 18, "Order_DayOfWeek": "Friday", "count": 1376}, {"Order_Week": 18, "Order_DayOfWeek": "Monday", "count": 2055}, {"Order_Week": 18, "Order_DayOfWeek": "Saturday", "count": 1427}, {"Order_Week": 18, "Order_DayOfWeek": "Sunday", "count": 1467}, {"Order_Week": 18, "Order_DayOfWeek": "Thursday", "count": 1462}, {"Order_Week": 18, "Order_DayOfWeek": "Tuesday", "count": 2059}, {"Order_Week": 18, "Order_DayOfWeek": "Wednesday", "count": 2004}, {"Order_Week": 19, "Order_DayOfWeek": "Friday", "count": 1104}, {"Order_Week": 19, "Order_DayOfWeek": "Monday", "count": 1303}, {"Order_Week": 19, "Order_DayOfWeek": "Saturday", "count": 1202}, {"Order_Week": 19, "Order_DayOfWeek": "Sunday", "count": 1397}, {"Order_Week": 19, "Order_DayOfWeek": "Thursday", "count": 1100}, {"Order_Week": 19, "Order_DayOfWeek": "Tuesday", "count": 1172}, {"Order_Week": 19, "Order_DayOfWeek": "Wednesday", "count": 1172}, {"Order_Week": 20, "Order_DayOfWeek": "Friday", "count": 1096}, {"Order_Week": 20, "Order_DayOfWeek": "Monday", "count": 1195}, {"Order_Week": 20, "Order_DayOfWeek": "Saturday", "count": 1084}, {"Order_Week": 20, "Order_DayOfWeek": "Sunday", "count": 1209}, {"Order_Week": 20, "Order_DayOfWeek": "Thursday", "count": 1201}, {"Order_Week": 20, "Order_DayOfWeek": "Tuesday", "count": 1193}, {"Order_Week": 20, "Order_DayOfWeek": "Wednesday", "count": 1257}, {"Order_Week": 21, "Order_DayOfWeek": "Friday", "count": 1287}, {"Order_Week": 21, "Order_DayOfWeek": "Monday", "count": 1178}, {"Order_Week": 21, "Order_DayOfWeek": "Saturday", "count": 1340}, {"Order_Week": 21, "Order_DayOfWeek": "Sunday", "count": 1293}, {"Order_Week": 21, "Order_DayOfWeek": "Thursday", "count": 1213}, {"Order_Week": 21, "Order_DayOfWeek": "Tuesday", "count": 1209}, {"Order_Week": 21, "Order_DayOfWeek": "Wednesday", "count": 1276}, {"Order_Week": 22, "Order_DayOfWeek": "Friday", "count": 1217}, {"Order_Week": 22, "Order_DayOfWeek": "Monday", "count": 1256}, {"Order_Week": 22, "Order_DayOfWeek": "Saturday", "count": 1427}, {"Order_Week": 22, "Order_DayOfWeek": "Sunday", "count": 1577}, {"Order_Week": 22, "Order_DayOfWeek": "Thursday", "count": 1404}, {"Order_Week": 22, "Order_DayOfWeek": "Tuesday", "count": 1378}, {"Order_Week": 22, "Order_DayOfWeek": "Wednesday", "count": 1514}, {"Order_Week": 23, "Order_DayOfWeek": "Friday", "count": 1263}, {"Order_Week": 23, "Order_DayOfWeek": "Monday", "count": 1525}, {"Order_Week": 23, "Order_DayOfWeek": "Saturday", "count": 1361}, {"Order_Week": 23, "Order_DayOfWeek": "Sunday", "count": 1564}, {"Order_Week": 23, "Order_DayOfWeek": "Thursday", "count": 1558}, {"Order_Week": 23, "Order_DayOfWeek": "Tuesday", "count": 1527}, {"Order_Week": 23, "Order_DayOfWeek": "Wednesday", "count": 1580}, {"Order_Week": 24, "Order_DayOfWeek": "Friday", "count": 1161}, {"Order_Week": 24, "Order_DayOfWeek": "Monday", "count": 1394}, {"Order_Week": 24, "Order_DayOfWeek": "Saturday", "count": 1187}, {"Order_Week": 24, "Order_DayOfWeek": "Sunday", "count": 1174}, {"Order_Week": 24, "Order_DayOfWeek": "Thursday", "count": 1250}, {"Order_Week": 24, "Order_DayOfWeek": "Tuesday", "count": 1424}, {"Order_Week": 24, "Order_DayOfWeek": "Wednesday", "count": 1252}, {"Order_Week": 25, "Order_DayOfWeek": "Friday", "count": 1024}, {"Order_Week": 25, "Order_DayOfWeek": "Monday", "count": 1229}, {"Order_Week": 25, "Order_DayOfWeek": "Saturday", "count": 1024}, {"Order_Week": 25, "Order_DayOfWeek": "Sunday", "count": 1207}, {"Order_Week": 25, "Order_DayOfWeek": "Thursday", "count": 1079}, {"Order_Week": 25, "Order_DayOfWeek": "Tuesday", "count": 1306}, {"Order_Week": 25, "Order_DayOfWeek": "Wednesday", "count": 1293}, {"Order_Week": 26, "Order_DayOfWeek": "Monday", "count": 1110}, {"Order_Week": 26, "Order_DayOfWeek": "Tuesday", "count": 1198}, {"Order_Week": 26, "Order_DayOfWeek": "Wednesday", "count": 655}], "category": [{"Category": "T-shirt", "orders": 50042, "revenue": 39149552.36, "qty": 45129}, {"Category": "Shirt", "orders": 49352, "revenue": 21172088.29, "qty": 44671}, {"Category": "Blazer", "orders": 15391, "revenue": 11148205.83, "qty": 13850}, {"Category": "Trousers", "orders": 10577, "revenue": 5333137.3, "qty": 9867}, {"Category": "Perfume", "orders": 1154, "revenue": 788617.66, "qty": 1048}, {"Category": "Wallet", "orders": 913, "revenue": 454439.18, "qty": 851}, {"Category": "Socks", "orders": 429, "revenue": 147853.5, "qty": 390}, {"Category": "Shoes", "orders": 157, "revenue": 118968.76, "qty": 145}, {"Category": "Watch", "orders": 2, "revenue": 610.0, "qty": 2}], "size_dist": [{"Size": "M", "count": 22223}, {"Size": "L", "count": 21643}, {"Size": "XL", "count": 20392}, {"Size": "XXL", "count": 17666}, {"Size": "S", "count": 16680}, {"Size": "3XL", "count": 14518}, {"Size": "XS", "count": 10973}, {"Size": "Free", "count": 2226}, {"Size": "6XL", "count": 728}, {"Size": "5XL", "count": 548}, {"Size": "4XL", "count": 420}], "category_size": [{"Category": "Blazer", "Size": "3XL", "count": 1895}, {"Category": "Blazer", "Size": "L", "count": 2822}, {"Category": "Blazer", "Size": "M", "count": 2572}, {"Category": "Blazer", "Size": "S", "count": 2217}, {"Category": "Blazer", "Size": "XL", "count": 2358}, {"Category": "Blazer", "Size": "XS", "count": 1421}, {"Category": "Blazer", "Size": "XXL", "count": 2106}, {"Category": "Perfume", "Size": "Free", "count": 1154}, {"Category": "Shirt", "Size": "3XL", "count": 5615}, {"Category": "Shirt", "Size": "4XL", "count": 375}, {"Category": "Shirt", "Size": "5XL", "count": 487}, {"Category": "Shirt", "Size": "6XL", "count": 648}, {"Category": "Shirt", "Size": "L", "count": 8833}, {"Category": "Shirt", "Size": "M", "count": 8463}, {"Category": "Shirt", "Size": "S", "count": 5687}, {"Category": "Shirt", "Size": "XL", "count": 8580}, {"Category": "Shirt", "Size": "XS", "count": 3098}, {"Category": "Shirt", "Size": "XXL", "count": 7566}, {"Category": "Shoes", "Size": "Free", "count": 157}, {"Category": "Socks", "Size": "3XL", "count": 62}, {"Category": "Socks", "Size": "L", "count": 69}, {"Category": "Socks", "Size": "M", "count": 56}, {"Category": "Socks", "Size": "S", "count": 74}, {"Category": "Socks", "Size": "XL", "count": 69}, {"Category": "Socks", "Size": "XS", "count": 28}, {"Category": "Socks", "Size": "XXL", "count": 71}, {"Category": "T-shirt", "Size": "3XL", "count": 5766}, {"Category": "T-shirt", "Size": "4XL", "count": 45}, {"Category": "T-shirt", "Size": "5XL", "count": 61}, {"Category": "T-shirt", "Size": "6XL", "count": 80}, {"Category": "T-shirt", "Size": "L", "count": 8155}, {"Category": "T-shirt", "Size": "M", "count": 9316}, {"Category": "T-shirt", "Size": "S", "count": 7467}, {"Category": "T-shirt", "Size": "XL", "count": 7538}, {"Category": "T-shirt", "Size": "XS", "count": 5480}, {"Category": "T-shirt", "Size": "XXL", "count": 6134}, {"Category": "Trousers", "Size": "3XL", "count": 1180}, {"Category": "Trousers", "Size": "L", "count": 1764}, {"Category": "Trousers", "Size": "M", "count": 1816}, {"Category": "Trousers", "Size": "S", "count": 1235}, {"Category": "Trousers", "Size": "XL", "count": 1847}, {"Category": "Trousers", "Size": "XS", "count": 946}, {"Category": "Trousers", "Size": "XXL", "count": 1789}, {"Category": "Wallet", "Size": "Free", "count": 913}, {"Category": "Watch", "Size": "Free", "count": 2}], "fulfilment": [{"Fulfilment": "Amazon", "count": 89085}, {"Fulfilment": "Merchant", "count": 38932}], "cancel_by_fulfilment": [{"Fulfilment": "Amazon", "cancel_rate": 12.635123758208453}, {"Fulfilment": "Merchant", "cancel_rate": 17.435528613993633}], "status_by_fulfilment": [{"Fulfilment": "Amazon", "Status_Group": "Cancelled", "count": 11256}, {"Fulfilment": "Amazon", "Status_Group": "Pending", "count": 414}, {"Fulfilment": "Amazon", "Status_Group": "Shipped", "count": 77415}, {"Fulfilment": "Merchant", "Status_Group": "Cancelled", "count": 6788}, {"Fulfilment": "Merchant", "Status_Group": "Delivered", "count": 28515}, {"Fulfilment": "Merchant", "Status_Group": "Lost", "count": 4}, {"Fulfilment": "Merchant", "Status_Group": "Pending", "count": 519}, {"Fulfilment": "Merchant", "Status_Group": "Returned", "count": 2101}, {"Fulfilment": "Merchant", "Status_Group": "Shipped", "count": 1005}], "shipping_level": [{"Shipping_Level": "Expedited", "count": 88003}, {"Shipping_Level": "Standard", "count": 40014}], "return_rate_category": [{"Category": "Blazer", "return_rate": 2.2155805340783576}, {"Category": "Perfume", "return_rate": 1.386481802426343}, {"Category": "Shirt", "return_rate": 1.5176689901118496}, {"Category": "Shoes", "return_rate": 0.6369426751592357}, {"Category": "Socks", "return_rate": 1.3986013986013985}, {"Category": "T-shirt", "return_rate": 1.68458494864314}, {"Category": "Trousers", "return_rate": 1.257445400397088}, {"Category": "Wallet", "return_rate": 1.3143483023001095}, {"Category": "Watch", "return_rate": 0.0}], "state": [{"Ship_State": "MAHARASHTRA", "orders": 22103, "revenue": 13273663.9}, {"Ship_State": "KARNATAKA", "orders": 17188, "revenue": 10423734.02}, {"Ship_State": "TELANGANA", "orders": 11243, "revenue": 6884498.27}, {"Ship_State": "UTTAR PRADESH", "orders": 10599, "revenue": 6802135.08}, {"Ship_State": "TAMIL NADU", "orders": 11377, "revenue": 6483688.53}, {"Ship_State": "DELHI", "orders": 6999, "revenue": 4376592.41}, {"Ship_State": "KERALA", "orders": 6511, "revenue": 3800321.96}, {"Ship_State": "WEST BENGAL", "orders": 5915, "revenue": 3490748.01}, {"Ship_State": "ANDHRA PRADESH", "orders": 5373, "revenue": 3203257.86}, {"Ship_State": "HARYANA", "orders": 4388, "revenue": 2877733.99}, {"Ship_State": "GUJARAT", "orders": 4450, "revenue": 2787041.72}, {"Ship_State": "RAJASTHAN", "orders": 2700, "revenue": 1756656.16}, {"Ship_State": "MADHYA PRADESH", "orders": 2509, "revenue": 1582583.12}, {"Ship_State": "BIHAR", "orders": 2103, "revenue": 1409945.32}, {"Ship_State": "ODISHA", "orders": 2128, "revenue": 1383917.39}, {"Ship_State": "PUNJAB", "orders": 1909, "revenue": 1207944.84}, {"Ship_State": "ASSAM", "orders": 1658, "revenue": 1016458.2}, {"Ship_State": "UTTARAKHAND", "orders": 1541, "revenue": 969014.55}, {"Ship_State": "JHARKHAND", "orders": 1448, "revenue": 917107.21}, {"Ship_State": "GOA", "orders": 1132, "revenue": 636222.85}], "city": [{"Ship_City": "BENGALURU", "orders": 11798, "revenue": 7214273.12}, {"Ship_City": "HYDERABAD", "orders": 9066, "revenue": 5580722.97}, {"Ship_City": "MUMBAI", "orders": 7060, "revenue": 4267357.73}, {"Ship_City": "NEW DELHI", "orders": 6296, "revenue": 3936963.2}, {"Ship_City": "CHENNAI", "orders": 6233, "revenue": 3594709.13}, {"Ship_City": "PUNE", "orders": 4602, "revenue": 2790381.79}, {"Ship_City": "KOLKATA", "orders": 2820, "revenue": 1671613.99}, {"Ship_City": "GURUGRAM", "orders": 1943, "revenue": 1278535.78}, {"Ship_City": "THANE", "orders": 1867, "revenue": 1106886.54}, {"Ship_City": "LUCKNOW", "orders": 1621, "revenue": 1047044.1}, {"Ship_City": "NOIDA", "orders": 1620, "revenue": 1034836.01}, {"Ship_City": "GHAZIABAD", "orders": 1483, "revenue": 937133.46}, {"Ship_City": "AHMEDABAD", "orders": 1428, "revenue": 889630.46}, {"Ship_City": "NAVI MUMBAI", "orders": 1390, "revenue": 834204.91}, {"Ship_City": "BANGALORE", "orders": 1356, "revenue": 821580.35}], "cancel_by_state": [{"Ship_State": "ANDHRA PRADESH", "cancel_rate": 16.210683044853898}, {"Ship_State": "BIHAR", "cancel_rate": 16.119828815977176}, {"Ship_State": "DELHI", "cancel_rate": 12.944706386626661}, {"Ship_State": "GUJARAT", "cancel_rate": 13.101123595505618}, {"Ship_State": "HARYANA", "cancel_rate": 12.511394712853235}, {"Ship_State": "KARNATAKA", "cancel_rate": 12.863625785431696}, {"Ship_State": "KERALA", "cancel_rate": 17.63170019966211}, {"Ship_State": "MADHYA PRADESH", "cancel_rate": 14.946193702670389}, {"Ship_State": "MAHARASHTRA", "cancel_rate": 13.192779260733836}, {"Ship_State": "ODISHA", "cancel_rate": 15.977443609022558}, {"Ship_State": "RAJASTHAN", "cancel_rate": 13.777777777777779}, {"Ship_State": "TAMIL NADU", "cancel_rate": 13.68550584512613}, {"Ship_State": "TELANGANA", "cancel_rate": 14.28444365382905}, {"Ship_State": "UTTAR PRADESH", "cancel_rate": 15.039154637229926}, {"Ship_State": "WEST BENGAL", "cancel_rate": 14.7083685545224}], "b2b": [{"B2B": "False", "count": 127150}, {"B2B": "True", "count": 867}], "order_value_hist": [{"bin_start": 0.0, "bin_end": 186.13333333333333, "count": 7341}, {"bin_start": 186.13333333333333, "bin_end": 372.26666666666665, "count": 11343}, {"bin_start": 372.26666666666665, "bin_end": 558.4, "count": 38014}, {"bin_start": 558.4, "bin_end": 744.5333333333333, "count": 31698}, {"bin_start": 744.5333333333333, "bin_end": 930.6666666666666, "count": 19621}, {"bin_start": 930.6666666666666, "bin_end": 1116.8, "count": 8528}, {"bin_start": 1116.8, "bin_end": 1302.9333333333334, "count": 5962}, {"bin_start": 1302.9333333333334, "bin_end": 1489.0666666666666, "count": 2386}, {"bin_start": 1489.0666666666666, "bin_end": 1675.1999999999998, "count": 615}, {"bin_start": 1675.1999999999998, "bin_end": 1861.3333333333333, "count": 97}, {"bin_start": 1861.3333333333333, "bin_end": 2047.4666666666667, "count": 21}, {"bin_start": 2047.4666666666667, "bin_end": 2233.6, "count": 14}, {"bin_start": 2233.6, "bin_end": 2419.733333333333, "count": 17}, {"bin_start": 2419.733333333333, "bin_end": 2605.866666666667, "count": 8}, {"bin_start": 2605.866666666667, "bin_end": 2792.0, "count": 4}, {"bin_start": 2792.0, "bin_end": 2978.133333333333, "count": 4}, {"bin_start": 2978.133333333333, "bin_end": 3164.2666666666664, "count": 1}, {"bin_start": 3164.2666666666664, "bin_end": 3350.3999999999996, "count": 0}, {"bin_start": 3350.3999999999996, "bin_end": 3536.5333333333333, "count": 0}, {"bin_start": 3536.5333333333333, "bin_end": 3722.6666666666665, "count": 0}, {"bin_start": 3722.6666666666665, "bin_end": 3908.7999999999997, "count": 0}, {"bin_start": 3908.7999999999997, "bin_end": 4094.9333333333334, "count": 0}, {"bin_start": 4094.9333333333334, "bin_end": 4281.066666666667, "count": 1}, {"bin_start": 4281.066666666667, "bin_end": 4467.2, "count": 0}, {"bin_start": 4467.2, "bin_end": 4653.333333333333, "count": 0}, {"bin_start": 4653.333333333333, "bin_end": 4839.466666666666, "count": 0}, {"bin_start": 4839.466666666666, "bin_end": 5025.599999999999, "count": 0}, {"bin_start": 5025.599999999999, "bin_end": 5211.733333333334, "count": 0}, {"bin_start": 5211.733333333334, "bin_end": 5397.866666666667, "count": 0}, {"bin_start": 5397.866666666667, "bin_end": 5584.0, "count": 2}], "order_value_segment": [{"Order_Value_Segment": "High (>\u20b91000)", "count": 13294}, {"Order_Value_Segment": "Low (\u2264\u20b9400)", "count": 21382}, {"Order_Value_Segment": "Mid (\u20b9400\u2013\u20b91000)", "count": 83660}, {"Order_Value_Segment": "Zero/Cancelled", "count": 9681}], "avg_order_val_category": [{"Category": "T-shirt", "avg_amount": 782.3338867351424}, {"Category": "Shoes", "avg_amount": 757.7628025477707}, {"Category": "Blazer", "avg_amount": 724.332780845949}, {"Category": "Perfume", "avg_amount": 683.3775216637782}, {"Category": "Trousers", "avg_amount": 504.22022312564997}, {"Category": "Wallet", "avg_amount": 497.7428039430449}, {"Category": "Shirt", "avg_amount": 429.0016268844221}, {"Category": "Socks", "avg_amount": 344.6468531468532}, {"Category": "Watch", "avg_amount": 305.0}], "top_combos": [{"combo": "T-shirt - M", "count": 9316}, {"combo": "Shirt - L", "count": 8833}, {"combo": "Shirt - XL", "count": 8580}, {"combo": "Shirt - M", "count": 8463}, {"combo": "T-shirt - L", "count": 8155}, {"combo": "Shirt - XXL", "count": 7566}, {"combo": "T-shirt - XL", "count": 7538}, {"combo": "T-shirt - S", "count": 7467}, {"combo": "T-shirt - XXL", "count": 6134}, {"combo": "T-shirt - 3XL", "count": 5766}, {"combo": "Shirt - S", "count": 5687}, {"combo": "Shirt - 3XL", "count": 5615}, {"combo": "T-shirt - XS", "count": 5480}, {"combo": "Shirt - XS", "count": 3098}, {"combo": "Blazer - L", "count": 2822}], "status_all": [{"Status_Group": "Cancelled", "count": 18044}, {"Status_Group": "Delivered", "count": 28515}, {"Status_Group": "Lost", "count": 4}, {"Status_Group": "Pending", "count": 933}, {"Status_Group": "Returned", "count": 2101}, {"Status_Group": "Shipped", "count": 78420}], "b2b_by_state": [{"Ship_State": "MAHARASHTRA", "b2b_pct": 0.8686603628466725}, {"Ship_State": "KARNATAKA", "b2b_pct": 0.4247149173842215}, {"Ship_State": "TELANGANA", "b2b_pct": 0.4002490438495063}, {"Ship_State": "UTTAR PRADESH", "b2b_pct": 1.415227851684121}, {"Ship_State": "TAMIL NADU", "b2b_pct": 0.5010108112859277}, {"Ship_State": "DELHI", "b2b_pct": 0.8144020574367767}, {"Ship_State": "KERALA", "b2b_pct": 0.26109660574412535}, {"Ship_State": "WEST BENGAL", "b2b_pct": 0.5748098055790364}, {"Ship_State": "ANDHRA PRADESH", "b2b_pct": 0.4652894100130281}, {"Ship_State": "HARYANA", "b2b_pct": 1.048313582497721}, {"Ship_State": "GUJARAT", "b2b_pct": 1.1235955056179776}, {"Ship_State": "RAJASTHAN", "b2b_pct": 1.1481481481481481}]};
+
+// ---------- Plotly theme ----------
+const FONT = {family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color:"#e8edf2", size:11};
+const layoutBase = {
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  font:FONT, margin:{t:20,l:50,r:20,b:40},
+  xaxis:{gridcolor:'#1e2732', zerolinecolor:'#1e2732', tickfont:{size:10}},
+  yaxis:{gridcolor:'#1e2732', zerolinecolor:'#1e2732', tickfont:{size:10}},
+  legend:{orientation:'h', y:-0.2}
+};
+const PALETTE = ['#ffb020','#37c2a0','#5b8def','#ef6461','#c084fc','#f472b6','#84cc16','#22d3ee','#f97316'];
+function L(extra){
+  const clone = JSON.parse(JSON.stringify(layoutBase));
+  return Object.assign(clone, extra);
+}
+const CFG = {responsive:true, displaylogo:false};
+
+// ---------- KPIs ----------
+const k = DATA.kpis;
+const kpiRow = document.getElementById('kpiRow');
+const kpis = [
+  ['Total Orders', k.total_orders.toLocaleString(), ''],
+  ['Total Revenue', '₹' + (k.total_revenue/1e7).toFixed(2) + ' Cr', 'accent'],
+  ['Avg Order Value', '₹' + k.avg_order_value.toFixed(0), ''],
+  ['Units Sold', k.total_qty.toLocaleString(), ''],
+  ['Cancel Rate', k.cancel_rate.toFixed(1) + '%', 'danger'],
+  ['Return Rate', k.return_rate.toFixed(1) + '%', 'danger'],
+  ['B2B Share', k.b2b_pct.toFixed(2) + '%', ''],
+  ['States / Cities', k.states + ' / ' + k.cities.toLocaleString(), 'good'],
+];
+kpis.forEach(([label,val,cls])=>{
+  const div = document.createElement('div');
+  div.className='kpi';
+  div.innerHTML = `<div class="label">${label}</div><div class="value ${cls||''}">${val}</div>`;
+  kpiRow.appendChild(div);
+});
+
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+    window.dispatchEvent(new Event('resize'));
+  });
+});
+
+// ---------- Theme Toggle ----------
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const themeIcon = document.getElementById('themeIcon');
+themeToggleBtn.addEventListener('click', ()=>{
+  const isLight = document.body.classList.toggle('light-mode');
+  // Update icon path
+  if(isLight) {
+    themeIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
+  } else {
+    themeIcon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
+  }
+  updatePlotlyTheme(isLight);
+});
+
+function updatePlotlyTheme(isLight) {
+  const fontColor = isLight ? '#1e293b' : '#e8edf2';
+  const gridColor = isLight ? '#cbd5e1' : '#1e2732';
+  
+  // Update the global layoutBase
+  layoutBase.font.color = fontColor;
+  layoutBase.xaxis.gridcolor = gridColor;
+  layoutBase.xaxis.zerolinecolor = gridColor;
+  layoutBase.yaxis.gridcolor = gridColor;
+  layoutBase.yaxis.zerolinecolor = gridColor;
+  
+  // Redraw all rendered charts
+  document.querySelectorAll('[id^="chart"]').forEach(el => {
+    if(el.data && el.data.length > 0) {
+      const update = {
+        'font.color': fontColor,
+        'xaxis.gridcolor': gridColor,
+        'xaxis.zerolinecolor': gridColor,
+        'yaxis.gridcolor': gridColor,
+        'yaxis.zerolinecolor': gridColor
+      };
+      // Specifically for heatmaps/colorscales that might need updating:
+      if (el.id === 'chartCatSize' || el.id === 'chartHeatmap') {
+        const cs = isLight ? [[0,'#f1f5f9'],[1,'#ffb020']] : [[0,'#141b24'],[1,'#ffb020']];
+        Plotly.restyle(el, {colorscale: [cs]});
+      }
+      Plotly.relayout(el, update);
+    }
+  });
+}
+
+// ---------- Overview ----------
+Plotly.newPlot('chartDaily', [
+  {x:DATA.daily_trend.map(d=>d.Date), y:DATA.daily_trend.map(d=>d.orders), type:'scatter', mode:'lines', name:'Orders', line:{color:PALETTE[0]}},
+  {x:DATA.daily_trend.map(d=>d.Date), y:DATA.daily_trend.map(d=>d.revenue), type:'scatter', mode:'lines', name:'Revenue (₹)', yaxis:'y2', line:{color:PALETTE[1]}}
+], L({yaxis:{gridcolor:'#1e2732', title:'Orders'}, yaxis2:{overlaying:'y', side:'right', showgrid:false, title:'Revenue'}}), CFG);
+
+Plotly.newPlot('chartMonthly', [{
+  x:DATA.monthly.map(d=>d.Order_Month), y:DATA.monthly.map(d=>d.revenue),
+  type:'bar', marker:{color:PALETTE[0]}
+}], L({yaxis:{title:'Revenue (₹)'}}), CFG);
+
+Plotly.newPlot('chartDow', [{
+  x:DATA.dow.map(d=>d.Order_DayOfWeek), y:DATA.dow.map(d=>d.orders),
+  type:'bar', marker:{color:PALETTE[2]}
+}], L({}), CFG);
+
+// weekly heatmap: pivot
+(function(){
+  const weeks = [...new Set(DATA.weekly_heatmap.map(d=>d.Order_Week))].sort((a,b)=>a-b);
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const z = days.map(day => weeks.map(w => {
+    const rec = DATA.weekly_heatmap.find(d=>d.Order_Week===w && d.Order_DayOfWeek===day);
+    return rec ? rec.count : 0;
+  }));
+  Plotly.newPlot('chartHeatmap', [{
+    z:z, x:weeks, y:days, type:'heatmap', colorscale:[[0,'#141b24'],[1,'#ffb020']]
+  }], L({xaxis:{title:'Week #'}}), CFG);
+})();
+
+// ---------- Products (search-filterable by Category) ----------
+function showNoMatch(chartId, show){
+  const el = document.getElementById(chartId);
+  if(!el) return;
+  let msg = el.parentElement.querySelector('.no-match');
+  if(show){
+    el.style.display='none';
+    if(!msg){ msg=document.createElement('div'); msg.className='no-match'; msg.textContent='No matching results'; el.parentElement.appendChild(msg); }
+  } else {
+    el.style.display='';
+    if(msg) msg.remove();
+  }
+}
+
+function drawCatRev(term){
+  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
+  showNoMatch('chartCatRev', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCatRev', [{
+    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Category), type:'bar', orientation:'h', marker:{color:PALETTE[0]}
+  }], L({margin:{t:20,l:90,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
+  bindClickFilter('chartCatRev');
+}
+
+function drawCatOrders(term){
+  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
+  showNoMatch('chartCatOrders', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCatOrders', [{
+    x:rows.map(d=>d.Category), y:rows.map(d=>d.orders), type:'bar', marker:{color:PALETTE[1]}
+  }], L({}), CFG);
+  bindClickFilter('chartCatOrders');
+}
+
+function drawCatQty(term){
+  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
+  showNoMatch('chartCatQty', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCatQty', [{
+    x:rows.map(d=>d.Category), y:rows.map(d=>d.qty), type:'bar', marker:{color:PALETTE[6]}
+  }], L({yaxis:{title:'Units Sold'}}), CFG);
+  bindClickFilter('chartCatQty');
+}
+
+Plotly.newPlot('chartSize', [{
+  labels:DATA.size_dist.map(d=>d.Size), values:DATA.size_dist.map(d=>d.count), type:'pie', hole:0.4,
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+function drawCatSize(term){
+  const rows = filterBy(DATA.category_size, 'Category', term);
+  showNoMatch('chartCatSize', rows.length===0);
+  if(!rows.length) return;
+  const cats = [...new Set(rows.map(d=>d.Category))];
+  const sizes = [...new Set(rows.map(d=>d.Size))];
+  const z = cats.map(c => sizes.map(s=>{
+    const rec = rows.find(d=>d.Category===c && d.Size===s);
+    return rec ? rec.count : 0;
+  }));
+  Plotly.newPlot('chartCatSize', [{
+    z:z, x:sizes, y:cats, type:'heatmap', colorscale:[[0,'#141b24'],[1,'#37c2a0']]
+  }], L({margin:{t:20,l:80,r:20,b:40}}), CFG);
+}
+
+function drawCombos(term){
+  const rows = filterBy(DATA.top_combos, 'combo', term);
+  showNoMatch('chartCombos', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCombos', [{
+    x:rows.map(d=>d.combo), y:rows.map(d=>d.count), type:'bar', marker:{color:PALETTE[3]}
+  }], L({xaxis:{tickangle:-40}}), CFG);
+}
+
+// Filter out categories with too few orders to show meaningfully (< 10 orders)
+const MIN_CAT_ORDERS = 10;
+drawCatRev(''); drawCatOrders(''); drawCatQty(''); drawCatSize(''); drawCombos('');
+
+// ---------- Fulfillment ----------
+Plotly.newPlot('chartFulfilDonut', [{
+  labels:DATA.fulfilment.map(d=>d.Fulfilment), values:DATA.fulfilment.map(d=>d.count), type:'pie', hole:0.45,
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+Plotly.newPlot('chartCancelFulfil', [{
+  x:DATA.cancel_by_fulfilment.map(d=>d.Fulfilment), y:DATA.cancel_by_fulfilment.map(d=>d.cancel_rate),
+  type:'bar', marker:{color:PALETTE[4]}
+}], L({yaxis:{title:'Cancel Rate %'}}), CFG);
+
+(function(){
+  const fulfils = [...new Set(DATA.status_by_fulfilment.map(d=>d.Fulfilment))];
+  const statuses = [...new Set(DATA.status_by_fulfilment.map(d=>d.Status_Group))];
+  const traces = statuses.map((s,i)=>({
+    x:fulfils, y:fulfils.map(f=>{
+      const rec = DATA.status_by_fulfilment.find(d=>d.Fulfilment===f && d.Status_Group===s);
+      return rec ? rec.count : 0;
+    }), name:s, type:'bar', marker:{color:PALETTE[i%PALETTE.length]}
+  }));
+  Plotly.newPlot('chartStatusFulfil', traces, L({barmode:'stack'}), CFG);
+})();
+
+Plotly.newPlot('chartShipLevel', [{
+  labels:DATA.shipping_level.map(d=>d.Shipping_Level), values:DATA.shipping_level.map(d=>d.count), type:'pie', hole:0.4,
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+Plotly.newPlot('chartStatusAll', [{
+  labels:DATA.status_all.map(d=>d.Status_Group), values:DATA.status_all.map(d=>d.count), type:'pie',
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+function drawReturnCat(term){
+  const rows = filterBy(DATA.return_rate_category, 'Category', term);
+  showNoMatch('chartReturnCat', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartReturnCat', [{
+    x:rows.map(d=>d.Category), y:rows.map(d=>d.return_rate), type:'bar', marker:{color:PALETTE[5]}
+  }], L({yaxis:{title:'Return Rate %'}}), CFG);
+  bindClickFilter('chartReturnCat');
+}
+drawReturnCat('');
+
+// ---------- Geography (search-filterable by State/City) ----------
+function drawStateRev(term){
+  const rows = filterBy(DATA.state, 'Ship_State', term);
+  showNoMatch('chartStateRev', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartStateRev', [{
+    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Ship_State), type:'bar', orientation:'h', marker:{color:PALETTE[0]}
+  }], L({margin:{t:20,l:130,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
+  bindClickFilter('chartStateRev');
+}
+
+function drawCity(term){
+  const rows = filterBy(DATA.city, 'Ship_City', term);
+  showNoMatch('chartCity', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCity', [{
+    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Ship_City), type:'bar', orientation:'h', marker:{color:PALETTE[1]}
+  }], L({margin:{t:20,l:110,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
+  bindClickFilter('chartCity');
+}
+
+function drawCancelState(term){
+  const rows = filterBy(DATA.cancel_by_state, 'Ship_State', term);
+  showNoMatch('chartCancelState', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCancelState', [{
+    x:rows.map(d=>d.Ship_State), y:rows.map(d=>d.cancel_rate), type:'bar', marker:{color:PALETTE[3]}
+  }], L({xaxis:{tickangle:-30}, yaxis:{title:'Cancel Rate %'}}), CFG);
+  bindClickFilter('chartCancelState');
+}
+
+drawStateRev(''); drawCity(''); drawCancelState('');
+
+// ---------- Customers / Value ----------
+// Trim trailing zero-count bins from histogram
+const histData = DATA.order_value_hist.filter((d,i,a) => {
+  // keep if this bin has data OR any later bin has data
+  return a.slice(i).some(b => b.count > 0);
+});
+Plotly.newPlot('chartValueHist', [{
+  x:histData.map(d=>(d.bin_start+d.bin_end)/2), y:histData.map(d=>d.count),
+  type:'bar', marker:{color:PALETTE[2]}
+}], L({xaxis:{title:'Order Value (₹)'}}), CFG);
+
+Plotly.newPlot('chartValueSeg', [{
+  labels:DATA.order_value_segment.map(d=>d.Order_Value_Segment), values:DATA.order_value_segment.map(d=>d.count),
+  type:'pie', hole:0.4, marker:{colors:PALETTE}
+}], L({}), CFG);
+
+Plotly.newPlot('chartB2B', [{
+  labels:DATA.b2b.map(d=>d.B2B==='True'?'B2B':'B2C'), values:DATA.b2b.map(d=>d.count), type:'pie', hole:0.5,
+  marker:{colors:[PALETTE[0],PALETTE[1]]}
+}], L({}), CFG);
+
+Plotly.newPlot('chartAvgCat', [{
+  x:DATA.avg_order_val_category.map(d=>d.Category), y:DATA.avg_order_val_category.map(d=>d.avg_amount),
+  type:'bar', marker:{color:PALETTE[6]}
+}], L({yaxis:{title:'Avg Order Value (₹)'}}), CFG);
+
+Plotly.newPlot('chartB2BState', [{
+  x:DATA.b2b_by_state.map(d=>d.Ship_State), y:DATA.b2b_by_state.map(d=>d.b2b_pct),
+  type:'bar', marker:{color:PALETTE[4]}
+}], L({xaxis:{tickangle:-30}, yaxis:{title:'B2B Share %'}}), CFG);
+
+// ---------- Search & Interactive Cross Filtering Logic ----------
+function filterBy(arr, field, term){
+  if(!term) return arr;
+  const t = term.trim().toLowerCase();
+  return arr.filter(d => String(d[field]).toLowerCase().includes(t));
+}
+function debounce(fn, ms){
+  let h;
+  return (...args)=>{ clearTimeout(h); h = setTimeout(()=>fn(...args), ms); };
+}
+function runSearch(term){
+  drawCatRev(term); drawCatOrders(term); drawCatQty(term); drawCatSize(term); drawCombos(term); drawReturnCat(term);
+  drawStateRev(term); drawCity(term); drawCancelState(term);
+  updateActiveFilterPill(term);
+  window.dispatchEvent(new Event('resize'));
+}
+const searchBox = document.getElementById('searchBox');
+searchBox.addEventListener('input', debounce(e=>runSearch(e.target.value), 300));
+document.addEventListener('keydown', e=>{
+  if(e.key === '/' && document.activeElement !== searchBox){
+    e.preventDefault();
+    searchBox.focus();
+  }
+  if(e.key === 'Escape' && document.activeElement === searchBox){
+    searchBox.value=''; runSearch(''); searchBox.blur();
+  }
+});
+
+// Update the interactive Active Filter pill banner
+const activeFiltersContainer = document.getElementById('activeFiltersContainer');
+const filterValEl = document.getElementById('filterVal');
+const clearFilterBtn = document.getElementById('clearFilterBtn');
+
+function updateActiveFilterPill(term) {
+  if (term && term.trim()) {
+    filterValEl.textContent = term.trim();
+    activeFiltersContainer.classList.add('show');
+  } else {
+    activeFiltersContainer.classList.remove('show');
+  }
+}
+
+clearFilterBtn.addEventListener('click', () => {
+  searchBox.value = '';
+  runSearch('');
+});
+
+// Interactive Drill-Down: Clicking any bar filters the whole dashboard
+function bindClickFilter(chartId) {
+  const el = document.getElementById(chartId);
+  if (!el) return;
+  el.on('plotly_click', function(data) {
+    if (data && data.points && data.points[0]) {
+      const pt = data.points[0];
+      // Get whichever value is a string (category name, state name, etc.)
+      let term = '';
+      if (typeof pt.x === 'string') {
+        term = pt.x;
+      } else if (typeof pt.y === 'string') {
+        term = pt.y;
+      }
+      if (term) {
+        searchBox.value = term;
+        runSearch(term);
+        // Scroll to header area smoothly to make filter context obvious
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }
+    }
+  });
+}
+
+// ---------- CSV export ----------
+function toCSV(rows){
+  if(!rows || !rows.length) return '';
+  const cols = Object.keys(rows[0]);
+  const esc = v => {
+    const s = v===null||v===undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  return [cols.join(','), ...rows.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
+}
+document.querySelectorAll('.csv-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const key = btn.dataset.key, file = btn.dataset.file;
+    const rows = DATA[key];
+    const csv = toCSV(rows);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = file;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+});
+
+// ---------- Insights & Recommendations (computed live from DATA) ----------
+(function(){
+  const k = DATA.kpis;
+  const topCat = [...DATA.category].sort((a,b)=>b.revenue-a.revenue)[0];
+  const catShare = (topCat.revenue / k.total_revenue * 100).toFixed(1);
+  const bottomCats = [...DATA.category].sort((a,b)=>a.revenue-b.revenue).slice(0,2).map(d=>d.Category).join(' and ');
+
+  const cf = DATA.cancel_by_fulfilment;
+  const merchant = cf.find(d=>d.Fulfilment==='Merchant');
+  const amazon = cf.find(d=>d.Fulfilment==='Amazon');
+  const cancelGap = merchant && amazon ? (merchant.cancel_rate - amazon.cancel_rate).toFixed(1) : null;
+
+  const worstState = [...DATA.cancel_by_state].sort((a,b)=>b.cancel_rate-a.cancel_rate)[0];
+  const bestRevState = [...DATA.state].sort((a,b)=>b.revenue-a.revenue)[0];
+  const bestRevStateShare = (bestRevState.revenue / k.total_revenue * 100).toFixed(1);
+
+  const worstReturnCat = [...DATA.return_rate_category].sort((a,b)=>b.return_rate-a.return_rate)[0];
+
+  const busiestDow = [...DATA.dow].sort((a,b)=>b.orders-a.orders)[0];
+
+  const topSeg = [...DATA.order_value_segment].sort((a,b)=>b.count-a.count)[0];
+  const topSegShare = (topSeg.count / k.total_orders * 100).toFixed(1);
+
+  const b2bTop = [...DATA.b2b_by_state].sort((a,b)=>b.b2b_pct-a.b2b_pct)[0];
+
+  const findings = [
+    `<strong>${topCat.Category}</strong> drives ${catShare}% of total revenue (₹${(topCat.revenue/1e7).toFixed(2)} Cr) — by far the largest category, while ${bottomCats} contribute the least.`,
+    cancelGap ? `Merchant-fulfilled orders cancel at ${merchant.cancel_rate.toFixed(1)}%, ${cancelGap} percentage points higher than Amazon-fulfilled orders (${amazon.cancel_rate.toFixed(1)}%).` : '',
+    `${worstState.Ship_State} has the highest cancellation rate among top-revenue states, at ${worstState.cancel_rate.toFixed(1)}%.`,
+    `${bestRevState.Ship_State} is the single largest revenue state, contributing ${bestRevStateShare}% of total revenue.`,
+    `${worstReturnCat.Category} has the highest return rate of any category, at ${worstReturnCat.return_rate.toFixed(1)}%.`,
+    `${busiestDow.Order_DayOfWeek} is the busiest day of the week by order volume (${busiestDow.orders.toLocaleString()} orders).`,
+    `The <strong>${topSeg.Order_Value_Segment}</strong> order-value segment is the largest, making up ${topSegShare}% of all orders.`,
+    `${b2bTop.Ship_State} has the highest B2B order share among top-revenue states, at ${b2bTop.b2b_pct.toFixed(1)}%.`,
+    `Overall cancellation rate is ${k.cancel_rate.toFixed(1)}% and return rate is ${k.return_rate.toFixed(1)}%, against an average order value of ₹${k.avg_order_value.toFixed(0)}.`
+  ].filter(Boolean);
+
+  const recommendations = [
+    `<strong>Protect inventory for ${topCat.Category}</strong> — it anchors revenue, so stockouts there cost disproportionately more than in any other category.`,
+    cancelGap ? `<strong>Audit Merchant fulfilment</strong> — the ${cancelGap}-point cancellation gap versus Amazon fulfilment suggests process or reliability issues (packaging, dispatch delays, seller SLAs) worth investigating directly with merchant partners.` : '',
+    `<strong>Investigate ${worstState.Ship_State} operationally</strong> — its elevated cancellation rate may point to courier coverage gaps or delivery-time issues specific to that region rather than a demand problem.`,
+    `<strong>Double down on ${bestRevState.Ship_State}</strong> with targeted marketing and inventory placement, since it's already the top revenue contributor and likely has room to grow further with better local logistics.`,
+    `<strong>Review sizing/quality for ${worstReturnCat.Category}</strong> — a high return rate there is likely fit or expectation-mismatch, both fixable via better size charts or product photography.`,
+    `<strong>Plan staffing and stock replenishment around ${busiestDow.Order_DayOfWeek}</strong> peaks to avoid delays that could otherwise drive cancellations.`,
+    `<strong>Build offers around the ${topSeg.Order_Value_Segment} segment</strong>, since it represents the largest share of orders and is the most efficient lever for lifting overall revenue.`,
+    `<strong>Consider a dedicated B2B outreach in ${b2bTop.Ship_State}</strong> — its high business-buyer share suggests an existing wholesale/bulk demand pocket worth a tailored offer.`
+  ].filter(Boolean);
+
+  const html = `
+    <h4>Key findings</h4>
+    <ul>${findings.map(f=>`<li>${f}</li>`).join('')}</ul>
+    <h4>Recommendations</h4>
+    <ul>${recommendations.map(r=>`<li>${r}</li>`).join('')}</ul>
+  `;
+  document.getElementById('insightsBody').innerHTML = html;
+})();
+
+// ---------- Safety net: auto-hide any card whose chart has no real data ----------
+function hasRealData(gd){
+  if(!gd || !gd.data || !gd.data.length) return false;
+  return gd.data.some(trace=>{
+    const arrays = [trace.x, trace.y, trace.values, trace.z].filter(a=>Array.isArray(a) && a.length > 0);
+    if(!arrays.length) return false;
+    return arrays.some(arr => arr.some(v => v !== null && v !== undefined && v !== ''));
+  });
+}
+setTimeout(()=>{
+  document.querySelectorAll('[id^="chart"]').forEach(el=>{
+    if(!hasRealData(el)){
+      const card = el.closest('.card');
+      if(card) card.style.display = 'none';
+    }
+  });
+}, 300);
+</script>
+</body>
+</html>

@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Amazon Sales — Live Dashboard</title>
+<script src="vendor/plotly.min.js"></script>
+<style>
+  :root{
+    --bg:#0d1117;
+    --panel:#141b24;
+    --panel-border:#22303c;
+    --ink:#e8edf2;
+    --muted:#8a97a3;
+    --accent:#ffb020;
+    --accent2:#37c2a0;
+    --danger:#ef6461;
+    --grid:#1e2732;
+    --card-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+  body.light-mode {
+    --bg:#f0f2f5;
+    --panel:#ffffff;
+    --panel-border:#e2e8f0;
+    --ink:#1e293b;
+    --muted:#64748b;
+    --grid:#cbd5e1;
+    --card-shadow: 0 4px 20px rgba(148, 163, 184, 0.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  header{
+    padding:28px 32px 18px;
+    border-bottom:1px solid var(--panel-border);
+    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px;
+  }
+  header h1{
+    margin:0; font-size:1.6rem; letter-spacing:0.5px;
+  }
+  header h1 span{color:var(--accent);}
+  header p{margin:4px 0 0; color:var(--muted); font-size:0.85rem;}
+  .header-actions{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .kpis{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:14px; padding:22px 32px;
+  }
+  .kpi{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:10px;
+    padding:14px 16px;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s, border-color 0.3s;
+  }
+  .kpi:hover{
+    transform: translateY(-2px);
+  }
+  .kpi .label{color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;}
+  .kpi .value{font-size:1.5rem; font-weight:700; margin-top:4px;}
+  .kpi .value.accent{color:var(--accent);}
+  .kpi .value.danger{color:var(--danger);}
+  .kpi .value.good{color:var(--accent2);}
+
+  .tabs{
+    display:flex; gap:6px; padding:0 32px; border-bottom:1px solid var(--panel-border); flex-wrap:wrap;
+  }
+  .tab{
+    padding:10px 16px; cursor:pointer; color:var(--muted); font-size:0.9rem;
+    border-bottom:2px solid transparent; user-select:none;
+    font-weight: 500;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab.active{color:var(--ink); border-bottom-color:var(--accent);}
+  .tab:hover{color:var(--ink);}
+
+  .section{display:none; padding:20px 32px 40px;}
+  .section.active{display:block;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .grid1{display:grid; grid-template-columns:1fr; gap:18px;}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
+  
+  .card{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
+    padding:16px; box-shadow: var(--card-shadow);
+    transform: translateY(0);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s, border-color 0.3s;
+  }
+  .card:hover{
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  }
+  body.light-mode .card:hover{
+    box-shadow: 0 10px 25px rgba(148, 163, 184, 0.18);
+  }
+  .card h3{margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--ink); display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .card p.sub{margin:0 0 10px; color:var(--muted); font-size:0.78rem;}
+  footer{padding:18px 32px; color:var(--muted); font-size:0.75rem; border-top:1px solid var(--panel-border);}
+
+  .csv-btn{
+    background:transparent; border:1px solid var(--panel-border); color:var(--muted);
+    font-size:0.68rem; padding:3px 8px; border-radius:6px; cursor:pointer; white-space:nowrap;
+    transition: all 0.2s;
+  }
+  .csv-btn:hover{color:var(--ink); border-color:var(--accent2); background:rgba(55,194,160,0.08);}
+
+  .search-wrap{
+    position:relative; display:flex; align-items:center; min-width:220px;
+  }
+  .search-wrap input{
+    width:100%; background:var(--panel); border:1px solid var(--panel-border); color:var(--ink);
+    border-radius:8px; padding:8px 12px 8px 30px; font-size:0.85rem;
+    transition: border-color 0.2s, background-color 0.3s;
+  }
+  .search-wrap input:focus{outline:none; border-color:var(--accent2);}
+  .search-wrap svg{position:absolute; left:9px; width:14px; height:14px; stroke:var(--muted);}
+  .search-hint{color:var(--muted); font-size:0.68rem; margin-top:3px;}
+  .search-hint kbd{background:var(--panel); border:1px solid var(--panel-border); border-radius:4px; padding:0 4px; font-size:0.68rem;}
+  .no-match{color:var(--muted); font-size:0.85rem; text-align:center; padding:30px 0;}
+
+  /* Active Filter Pills */
+  .active-filters{
+    display:none; align-items:center; gap:8px; padding: 12px 32px 0; flex-wrap:wrap;
+  }
+  .active-filters.show{display:flex;}
+  .filter-pill{
+    background:rgba(55, 194, 160, 0.12); border: 1px solid var(--accent2); color: var(--accent2);
+    font-size: 0.75rem; padding: 5px 12px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px;
+    font-weight: 500; box-shadow: 0 2px 6px rgba(55, 194, 160, 0.05);
+  }
+  .filter-pill span.close{
+    cursor:pointer; font-weight:bold; font-size:0.95rem; margin-left: 2px;
+  }
+  .filter-pill span.close:hover{
+    color: var(--danger);
+  }
+
+  /* Theme toggle button styling */
+  .theme-btn {
+    background: var(--panel); border: 1px solid var(--panel-border); color: var(--ink);
+    border-radius: 8px; width: 34px; height: 34px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover {
+    border-color: var(--accent);
+    background: rgba(255, 176, 32, 0.08);
+  }
+  .theme-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+  .about-card{max-width:900px;}
+  .about-card h2{margin:0 0 6px; font-size:1.1rem;}
+  .about-card h4{margin:16px 0 6px; color:var(--accent2); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px;}
+  .about-card p{color:var(--ink); line-height:1.55; font-size:0.92rem; margin:0 0 6px;}
+  .about-card ul{margin:4px 0 0; padding-left:18px; color:var(--ink); font-size:0.9rem; line-height:1.6;}
+  .stack-pills{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
+  .stack-pills span{background:var(--panel); border:1px solid var(--panel-border); color:var(--accent);
+    padding:4px 10px; border-radius:999px; font-size:0.78rem;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Amazon Sales <span>· Live Dashboard</span></h1>
+    <p>128,017 orders · March–June 2022 · Charts render directly from cleaned dataset (no static images)</p>
+  </div>
+  <div class="header-actions">
+    <div>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input id="searchBox" type="text" placeholder="Search category, state or city…" aria-label="Search category, state, or city">
+      </div>
+      <div class="search-hint">Filters Products &amp; Geography charts · press <kbd>/</kbd> to focus</div>
+    </div>
+    <button class="theme-btn" id="themeToggleBtn" title="Toggle Light/Dark Theme">
+      <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    </button>
+  </div>
+</header>
+
+<div class="active-filters" id="activeFiltersContainer">
+  <div class="filter-pill" id="filterPill">
+    <span>Active Filter: </span><strong id="filterVal"></strong>
+    <span class="close" id="clearFilterBtn" title="Clear Filter">&times;</span>
+  </div>
+</div>
+
+<div class="kpis" id="kpiRow"></div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="about">About</div>
+  <div class="tab" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="products">Products</div>
+  <div class="tab" data-tab="fulfillment">Fulfillment &amp; Status</div>
+  <div class="tab" data-tab="geo">Geography</div>
+  <div class="tab" data-tab="customers">Customer Segmentation</div>
+  <div class="tab" data-tab="insights">Insights &amp; Recommendations</div>
+</div>
+
+<div class="section active" id="tab-about">
+  <div class="card about-card">
+    <h2>Amazon Sales Dashboard — Live Data Project</h2>
+    <p>This dashboard analyzes 128,017 real Amazon India orders from March–June 2022 to answer a
+    practical business question: <em>where is revenue coming from, and where is it leaking?</em>
+    Every number on every chart is computed live from the underlying dataset — there are no
+    static images, mock numbers, or "coming soon" placeholders.</p>
+
+    <h4>Problem it solves</h4>
+    <p>Sellers and ops teams need a fast way to see revenue trends, which product categories and
+    sizes perform best, where orders get cancelled or returned, and how fulfilment method
+    (Amazon vs. Merchant) affects that — without opening a spreadsheet. This dashboard turns a
+    128k-row CSV into an interactive, drill-able view of all of that in one page.</p>
+
+    <h4>Tech stack</h4>
+    <div class="stack-pills">
+      <span>Python (pandas / numpy)</span>
+      <span>HTML / CSS / vanilla JS</span>
+      <span>Plotly.js</span>
+      <span>Static single-file build</span>
+    </div>
+
+    <h4>Key features</h4>
+    <ul>
+      <li>23 charts across 7 sections, all rendered from a single aggregated JSON payload</li>
+      <li>Live search filtering across Products &amp; Geography charts (category, state, city)</li>
+      <li>One-click CSV export on every chart card, for pulling numbers into Excel/Sheets</li>
+      <li>Auto-hide safety net: any chart that ends up with no real data disappears instead of showing a blank box</li>
+      <li>Fully responsive layout, dark theme, tabbed navigation</li>
+    </ul>
+
+    <h4>How it's built</h4>
+    <p><code>build_dashboard.py</code> reads the CSV, computes all aggregates with pandas, writes
+    them to <code>data/dashboard_data.json</code>, then injects that JSON into
+    <code>dashboard_template.html</code> to produce this self-contained <code>dashboard.html</code>.
+    Swap in a new CSV with the same schema and re-run the script to refresh every number.</p>
+  </div>
+</div>
+
+<div class="section" id="tab-overview">
+  <div class="grid2">
+    <div class="card"><h3>Daily Orders &amp; Revenue Trend<button class="csv-btn" data-key="daily_trend" data-file="daily_orders_revenue.csv">⬇ CSV</button></h3><p class="sub">Full period, hover for exact values</p><div id="chartDaily" style="height:340px;"></div></div>
+    <div class="card"><h3>Monthly Revenue<button class="csv-btn" data-key="monthly" data-file="monthly_revenue.csv">CSV</button></h3><p class="sub">Mar–Jun 2022</p><div id="chartMonthly" style="height:340px;"></div></div>
+    <div class="card"><h3>Orders by Day of Week<button class="csv-btn" data-key="dow" data-file="orders_by_day_of_week.csv">CSV</button></h3><div id="chartDow" style="height:320px;"></div></div>
+    <div class="card"><h3>Order Volume Heatmap (Week × Day)<button class="csv-btn" data-key="weekly_heatmap" data-file="order_volume_heatmap.csv">CSV</button></h3><div id="chartHeatmap" style="height:320px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-products">
+  <div class="grid2">
+    <div class="card"><h3>Revenue by Category<button class="csv-btn" data-key="category" data-file="revenue_by_category.csv">CSV</button></h3><div id="chartCatRev" style="height:340px;"></div></div>
+    <div class="card"><h3>Orders by Category<button class="csv-btn" data-key="category" data-file="orders_by_category.csv">CSV</button></h3><div id="chartCatOrders" style="height:340px;"></div></div>
+    <div class="card"><h3>Quantity Sold by Category<button class="csv-btn" data-key="category" data-file="qty_by_category.csv">CSV</button></h3><div id="chartCatQty" style="height:340px;"></div></div>
+    <div class="card"><h3>Size Distribution<button class="csv-btn" data-key="size_dist" data-file="size_distribution.csv">CSV</button></h3><div id="chartSize" style="height:320px;"></div></div>
+    <div class="card"><h3>Category × Size Heatmap<button class="csv-btn" data-key="category_size" data-file="category_size_heatmap.csv">CSV</button></h3><div id="chartCatSize" style="height:320px;"></div></div>
+    <div class="card" style="grid-column:span 2;"><h3>Top Category–Size Combinations<button class="csv-btn" data-key="top_combos" data-file="top_category_size_combos.csv">CSV</button></h3><div id="chartCombos" style="height:360px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-fulfillment">
+  <div class="grid2">
+    <div class="card"><h3>Fulfilment Split<button class="csv-btn" data-key="fulfilment" data-file="fulfilment_split.csv">CSV</button></h3><div id="chartFulfilDonut" style="height:320px;"></div></div>
+    <div class="card"><h3>Cancellation Rate by Fulfilment<button class="csv-btn" data-key="cancel_by_fulfilment" data-file="cancellation_rate_by_fulfilment.csv">CSV</button></h3><div id="chartCancelFulfil" style="height:320px;"></div></div>
+    <div class="card"><h3>Order Status by Fulfilment<button class="csv-btn" data-key="status_by_fulfilment" data-file="order_status_by_fulfilment.csv">CSV</button></h3><div id="chartStatusFulfil" style="height:340px;"></div></div>
+    <div class="card"><h3>Shipping Level Split<button class="csv-btn" data-key="shipping_level" data-file="shipping_level_split.csv">CSV</button></h3><div id="chartShipLevel" style="height:320px;"></div></div>
+    <div class="card"><h3>Overall Status Breakdown<button class="csv-btn" data-key="status_all" data-file="overall_status_breakdown.csv">CSV</button></h3><div id="chartStatusAll" style="height:320px;"></div></div>
+    <div class="card"><h3>Return Rate by Category<button class="csv-btn" data-key="return_rate_category" data-file="return_rate_by_category.csv">CSV</button></h3><div id="chartReturnCat" style="height:320px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-geo">
+  <div class="grid2">
+    <div class="card"><h3>Top States by Revenue<button class="csv-btn" data-key="state" data-file="top_states_by_revenue.csv">CSV</button></h3><div id="chartStateRev" style="height:380px;"></div></div>
+    <div class="card"><h3>Top Cities by Revenue<button class="csv-btn" data-key="city" data-file="top_cities_by_revenue.csv">CSV</button></h3><div id="chartCity" style="height:380px;"></div></div>
+    <div class="card" style="grid-column:span 2;"><h3>Cancellation Rate — Top 15 States<button class="csv-btn" data-key="cancel_by_state" data-file="cancellation_rate_by_state.csv">CSV</button></h3><div id="chartCancelState" style="height:360px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-customers">
+  <div class="grid1">
+    <div class="card">
+      <p class="sub" style="margin:0;">This dataset has no customer ID column, so individual repeat-purchase history
+      can't be tracked. Segmentation here is built from the three customer-behavior proxies the data does support:
+      order value tier, B2B vs. B2C buying pattern, and geography — cross-referenced below.</p>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Order Value Distribution<button class="csv-btn" data-key="order_value_hist" data-file="order_value_distribution.csv">CSV</button></h3><div id="chartValueHist" style="height:340px;"></div></div>
+    <div class="card"><h3>Order Value Segments<button class="csv-btn" data-key="order_value_segment" data-file="order_value_segments.csv">CSV</button></h3><div id="chartValueSeg" style="height:340px;"></div></div>
+    <div class="card"><h3>B2B vs B2C Orders<button class="csv-btn" data-key="b2b" data-file="b2b_vs_b2c.csv">CSV</button></h3><div id="chartB2B" style="height:320px;"></div></div>
+    <div class="card"><h3>Avg Order Value by Category<button class="csv-btn" data-key="avg_order_val_category" data-file="avg_order_value_by_category.csv">CSV</button></h3><div id="chartAvgCat" style="height:320px;"></div></div>
+    <div class="card" style="grid-column:span 2;"><h3>B2B Share by State — Top 12<button class="csv-btn" data-key="b2b_by_state" data-file="b2b_share_by_state.csv">CSV</button></h3><p class="sub">Where business buyers concentrate, by revenue-ranked state</p><div id="chartB2BState" style="height:340px;"></div></div>
+  </div>
+</div>
+
+<div class="section" id="tab-insights">
+  <div class="card about-card" style="max-width:none;">
+    <h2>Findings &amp; Recommendations</h2>
+    <p class="sub" style="margin:0 0 10px;">Computed live from the current dataset — these numbers update automatically if the CSV is refreshed and the dashboard rebuilt.</p>
+    <div id="insightsBody"></div>
+  </div>
+</div>
+
+<footer>Built from amazon_clean_Data.csv · All figures computed live from the aggregated dataset embedded in this page.</footer>
+
+<script>
+const DATA = __DATA_JSON__;
+
+// ---------- Plotly theme ----------
+const FONT = {family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color:"#e8edf2", size:11};
+const layoutBase = {
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  font:FONT, margin:{t:20,l:50,r:20,b:40},
+  xaxis:{gridcolor:'#1e2732', zerolinecolor:'#1e2732', tickfont:{size:10}},
+  yaxis:{gridcolor:'#1e2732', zerolinecolor:'#1e2732', tickfont:{size:10}},
+  legend:{orientation:'h', y:-0.2}
+};
+const PALETTE = ['#ffb020','#37c2a0','#5b8def','#ef6461','#c084fc','#f472b6','#84cc16','#22d3ee','#f97316'];
+function L(extra){
+  const clone = JSON.parse(JSON.stringify(layoutBase));
+  return Object.assign(clone, extra);
+}
+const CFG = {responsive:true, displaylogo:false};
+
+// ---------- KPIs ----------
+const k = DATA.kpis;
+const kpiRow = document.getElementById('kpiRow');
+const kpis = [
+  ['Total Orders', k.total_orders.toLocaleString(), ''],
+  ['Total Revenue', '₹' + (k.total_revenue/1e7).toFixed(2) + ' Cr', 'accent'],
+  ['Avg Order Value', '₹' + k.avg_order_value.toFixed(0), ''],
+  ['Units Sold', k.total_qty.toLocaleString(), ''],
+  ['Cancel Rate', k.cancel_rate.toFixed(1) + '%', 'danger'],
+  ['Return Rate', k.return_rate.toFixed(1) + '%', 'danger'],
+  ['B2B Share', k.b2b_pct.toFixed(2) + '%', ''],
+  ['States / Cities', k.states + ' / ' + k.cities.toLocaleString(), 'good'],
+];
+kpis.forEach(([label,val,cls])=>{
+  const div = document.createElement('div');
+  div.className='kpi';
+  div.innerHTML = `<div class="label">${label}</div><div class="value ${cls||''}">${val}</div>`;
+  kpiRow.appendChild(div);
+});
+
+// ---------- Tabs ----------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('tab-'+t.dataset.tab).classList.add('active');
+    window.dispatchEvent(new Event('resize'));
+  });
+});
+
+// ---------- Theme Toggle ----------
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const themeIcon = document.getElementById('themeIcon');
+themeToggleBtn.addEventListener('click', ()=>{
+  const isLight = document.body.classList.toggle('light-mode');
+  // Update icon path
+  if(isLight) {
+    themeIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
+  } else {
+    themeIcon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
+  }
+  updatePlotlyTheme(isLight);
+});
+
+function updatePlotlyTheme(isLight) {
+  const fontColor = isLight ? '#1e293b' : '#e8edf2';
+  const gridColor = isLight ? '#cbd5e1' : '#1e2732';
+  
+  // Update the global layoutBase
+  layoutBase.font.color = fontColor;
+  layoutBase.xaxis.gridcolor = gridColor;
+  layoutBase.xaxis.zerolinecolor = gridColor;
+  layoutBase.yaxis.gridcolor = gridColor;
+  layoutBase.yaxis.zerolinecolor = gridColor;
+  
+  // Redraw all rendered charts
+  document.querySelectorAll('[id^="chart"]').forEach(el => {
+    if(el.data && el.data.length > 0) {
+      const update = {
+        'font.color': fontColor,
+        'xaxis.gridcolor': gridColor,
+        'xaxis.zerolinecolor': gridColor,
+        'yaxis.gridcolor': gridColor,
+        'yaxis.zerolinecolor': gridColor
+      };
+      // Specifically for heatmaps/colorscales that might need updating:
+      if (el.id === 'chartCatSize' || el.id === 'chartHeatmap') {
+        const cs = isLight ? [[0,'#f1f5f9'],[1,'#ffb020']] : [[0,'#141b24'],[1,'#ffb020']];
+        Plotly.restyle(el, {colorscale: [cs]});
+      }
+      Plotly.relayout(el, update);
+    }
+  });
+}
+
+// ---------- Overview ----------
+Plotly.newPlot('chartDaily', [
+  {x:DATA.daily_trend.map(d=>d.Date), y:DATA.daily_trend.map(d=>d.orders), type:'scatter', mode:'lines', name:'Orders', line:{color:PALETTE[0]}},
+  {x:DATA.daily_trend.map(d=>d.Date), y:DATA.daily_trend.map(d=>d.revenue), type:'scatter', mode:'lines', name:'Revenue (₹)', yaxis:'y2', line:{color:PALETTE[1]}}
+], L({yaxis:{gridcolor:'#1e2732', title:'Orders'}, yaxis2:{overlaying:'y', side:'right', showgrid:false, title:'Revenue'}}), CFG);
+
+Plotly.newPlot('chartMonthly', [{
+  x:DATA.monthly.map(d=>d.Order_Month), y:DATA.monthly.map(d=>d.revenue),
+  type:'bar', marker:{color:PALETTE[0]}
+}], L({yaxis:{title:'Revenue (₹)'}}), CFG);
+
+Plotly.newPlot('chartDow', [{
+  x:DATA.dow.map(d=>d.Order_DayOfWeek), y:DATA.dow.map(d=>d.orders),
+  type:'bar', marker:{color:PALETTE[2]}
+}], L({}), CFG);
+
+// weekly heatmap: pivot
+(function(){
+  const weeks = [...new Set(DATA.weekly_heatmap.map(d=>d.Order_Week))].sort((a,b)=>a-b);
+  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const z = days.map(day => weeks.map(w => {
+    const rec = DATA.weekly_heatmap.find(d=>d.Order_Week===w && d.Order_DayOfWeek===day);
+    return rec ? rec.count : 0;
+  }));
+  Plotly.newPlot('chartHeatmap', [{
+    z:z, x:weeks, y:days, type:'heatmap', colorscale:[[0,'#141b24'],[1,'#ffb020']]
+  }], L({xaxis:{title:'Week #'}}), CFG);
+})();
+
+// ---------- Products (search-filterable by Category) ----------
+function showNoMatch(chartId, show){
+  const el = document.getElementById(chartId);
+  if(!el) return;
+  let msg = el.parentElement.querySelector('.no-match');
+  if(show){
+    el.style.display='none';
+    if(!msg){ msg=document.createElement('div'); msg.className='no-match'; msg.textContent='No matching results'; el.parentElement.appendChild(msg); }
+  } else {
+    el.style.display='';
+    if(msg) msg.remove();
+  }
+}
+
+function drawCatRev(term){
+  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
+  showNoMatch('chartCatRev', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCatRev', [{
+    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Category), type:'bar', orientation:'h', marker:{color:PALETTE[0]}
+  }], L({margin:{t:20,l:90,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
+  bindClickFilter('chartCatRev');
+}
+
+function drawCatOrders(term){
+  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
+  showNoMatch('chartCatOrders', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCatOrders', [{
+    x:rows.map(d=>d.Category), y:rows.map(d=>d.orders), type:'bar', marker:{color:PALETTE[1]}
+  }], L({}), CFG);
+  bindClickFilter('chartCatOrders');
+}
+
+function drawCatQty(term){
+  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
+  showNoMatch('chartCatQty', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCatQty', [{
+    x:rows.map(d=>d.Category), y:rows.map(d=>d.qty), type:'bar', marker:{color:PALETTE[6]}
+  }], L({yaxis:{title:'Units Sold'}}), CFG);
+  bindClickFilter('chartCatQty');
+}
+
+Plotly.newPlot('chartSize', [{
+  labels:DATA.size_dist.map(d=>d.Size), values:DATA.size_dist.map(d=>d.count), type:'pie', hole:0.4,
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+function drawCatSize(term){
+  const rows = filterBy(DATA.category_size, 'Category', term);
+  showNoMatch('chartCatSize', rows.length===0);
+  if(!rows.length) return;
+  const cats = [...new Set(rows.map(d=>d.Category))];
+  const sizes = [...new Set(rows.map(d=>d.Size))];
+  const z = cats.map(c => sizes.map(s=>{
+    const rec = rows.find(d=>d.Category===c && d.Size===s);
+    return rec ? rec.count : 0;
+  }));
+  Plotly.newPlot('chartCatSize', [{
+    z:z, x:sizes, y:cats, type:'heatmap', colorscale:[[0,'#141b24'],[1,'#37c2a0']]
+  }], L({margin:{t:20,l:80,r:20,b:40}}), CFG);
+}
+
+function drawCombos(term){
+  const rows = filterBy(DATA.top_combos, 'combo', term);
+  showNoMatch('chartCombos', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCombos', [{
+    x:rows.map(d=>d.combo), y:rows.map(d=>d.count), type:'bar', marker:{color:PALETTE[3]}
+  }], L({xaxis:{tickangle:-40}}), CFG);
+}
+
+// Filter out categories with too few orders to show meaningfully (< 10 orders)
+const MIN_CAT_ORDERS = 10;
+drawCatRev(''); drawCatOrders(''); drawCatQty(''); drawCatSize(''); drawCombos('');
+
+// ---------- Fulfillment ----------
+Plotly.newPlot('chartFulfilDonut', [{
+  labels:DATA.fulfilment.map(d=>d.Fulfilment), values:DATA.fulfilment.map(d=>d.count), type:'pie', hole:0.45,
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+Plotly.newPlot('chartCancelFulfil', [{
+  x:DATA.cancel_by_fulfilment.map(d=>d.Fulfilment), y:DATA.cancel_by_fulfilment.map(d=>d.cancel_rate),
+  type:'bar', marker:{color:PALETTE[4]}
+}], L({yaxis:{title:'Cancel Rate %'}}), CFG);
+
+(function(){
+  const fulfils = [...new Set(DATA.status_by_fulfilment.map(d=>d.Fulfilment))];
+  const statuses = [...new Set(DATA.status_by_fulfilment.map(d=>d.Status_Group))];
+  const traces = statuses.map((s,i)=>({
+    x:fulfils, y:fulfils.map(f=>{
+      const rec = DATA.status_by_fulfilment.find(d=>d.Fulfilment===f && d.Status_Group===s);
+      return rec ? rec.count : 0;
+    }), name:s, type:'bar', marker:{color:PALETTE[i%PALETTE.length]}
+  }));
+  Plotly.newPlot('chartStatusFulfil', traces, L({barmode:'stack'}), CFG);
+})();
+
+Plotly.newPlot('chartShipLevel', [{
+  labels:DATA.shipping_level.map(d=>d.Shipping_Level), values:DATA.shipping_level.map(d=>d.count), type:'pie', hole:0.4,
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+Plotly.newPlot('chartStatusAll', [{
+  labels:DATA.status_all.map(d=>d.Status_Group), values:DATA.status_all.map(d=>d.count), type:'pie',
+  marker:{colors:PALETTE}
+}], L({}), CFG);
+
+function drawReturnCat(term){
+  const rows = filterBy(DATA.return_rate_category, 'Category', term);
+  showNoMatch('chartReturnCat', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartReturnCat', [{
+    x:rows.map(d=>d.Category), y:rows.map(d=>d.return_rate), type:'bar', marker:{color:PALETTE[5]}
+  }], L({yaxis:{title:'Return Rate %'}}), CFG);
+  bindClickFilter('chartReturnCat');
+}
+drawReturnCat('');
+
+// ---------- Geography (search-filterable by State/City) ----------
+function drawStateRev(term){
+  const rows = filterBy(DATA.state, 'Ship_State', term);
+  showNoMatch('chartStateRev', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartStateRev', [{
+    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Ship_State), type:'bar', orientation:'h', marker:{color:PALETTE[0]}
+  }], L({margin:{t:20,l:130,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
+  bindClickFilter('chartStateRev');
+}
+
+function drawCity(term){
+  const rows = filterBy(DATA.city, 'Ship_City', term);
+  showNoMatch('chartCity', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCity', [{
+    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Ship_City), type:'bar', orientation:'h', marker:{color:PALETTE[1]}
+  }], L({margin:{t:20,l:110,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
+  bindClickFilter('chartCity');
+}
+
+function drawCancelState(term){
+  const rows = filterBy(DATA.cancel_by_state, 'Ship_State', term);
+  showNoMatch('chartCancelState', rows.length===0);
+  if(!rows.length) return;
+  Plotly.newPlot('chartCancelState', [{
+    x:rows.map(d=>d.Ship_State), y:rows.map(d=>d.cancel_rate), type:'bar', marker:{color:PALETTE[3]}
+  }], L({xaxis:{tickangle:-30}, yaxis:{title:'Cancel Rate %'}}), CFG);
+  bindClickFilter('chartCancelState');
+}
+
+drawStateRev(''); drawCity(''); drawCancelState('');
+
+// ---------- Customers / Value ----------
+// Trim trailing zero-count bins from histogram
+const histData = DATA.order_value_hist.filter((d,i,a) => {
+  // keep if this bin has data OR any later bin has data
+  return a.slice(i).some(b => b.count > 0);
+});
+Plotly.newPlot('chartValueHist', [{
+  x:histData.map(d=>(d.bin_start+d.bin_end)/2), y:histData.map(d=>d.count),
+  type:'bar', marker:{color:PALETTE[2]}
+}], L({xaxis:{title:'Order Value (₹)'}}), CFG);
+
+Plotly.newPlot('chartValueSeg', [{
+  labels:DATA.order_value_segment.map(d=>d.Order_Value_Segment), values:DATA.order_value_segment.map(d=>d.count),
+  type:'pie', hole:0.4, marker:{colors:PALETTE}
+}], L({}), CFG);
+
+Plotly.newPlot('chartB2B', [{
+  labels:DATA.b2b.map(d=>d.B2B==='True'?'B2B':'B2C'), values:DATA.b2b.map(d=>d.count), type:'pie', hole:0.5,
+  marker:{colors:[PALETTE[0],PALETTE[1]]}
+}], L({}), CFG);
+
+Plotly.newPlot('chartAvgCat', [{
+  x:DATA.avg_order_val_category.map(d=>d.Category), y:DATA.avg_order_val_category.map(d=>d.avg_amount),
+  type:'bar', marker:{color:PALETTE[6]}
+}], L({yaxis:{title:'Avg Order Value (₹)'}}), CFG);
+
+Plotly.newPlot('chartB2BState', [{
+  x:DATA.b2b_by_state.map(d=>d.Ship_State), y:DATA.b2b_by_state.map(d=>d.b2b_pct),
+  type:'bar', marker:{color:PALETTE[4]}
+}], L({xaxis:{tickangle:-30}, yaxis:{title:'B2B Share %'}}), CFG);
+
+// ---------- Search & Interactive Cross Filtering Logic ----------
+function filterBy(arr, field, term){
+  if(!term) return arr;
+  const t = term.trim().toLowerCase();
+  return arr.filter(d => String(d[field]).toLowerCase().includes(t));
+}
+function debounce(fn, ms){
+  let h;
+  return (...args)=>{ clearTimeout(h); h = setTimeout(()=>fn(...args), ms); };
+}
+function runSearch(term){
+  drawCatRev(term); drawCatOrders(term); drawCatQty(term); drawCatSize(term); drawCombos(term); drawReturnCat(term);
+  drawStateRev(term); drawCity(term); drawCancelState(term);
+  updateActiveFilterPill(term);
+  window.dispatchEvent(new Event('resize'));
+}
+const searchBox = document.getElementById('searchBox');
+searchBox.addEventListener('input', debounce(e=>runSearch(e.target.value), 300));
+document.addEventListener('keydown', e=>{
+  if(e.key === '/' && document.activeElement !== searchBox){
+    e.preventDefault();
+    searchBox.focus();
+  }
+  if(e.key === 'Escape' && document.activeElement === searchBox){
+    searchBox.value=''; runSearch(''); searchBox.blur();
+  }
+});
+
+// Update the interactive Active Filter pill banner
+const activeFiltersContainer = document.getElementById('activeFiltersContainer');
+const filterValEl = document.getElementById('filterVal');
+const clearFilterBtn = document.getElementById('clearFilterBtn');
+
+function updateActiveFilterPill(term) {
+  if (term && term.trim()) {
+    filterValEl.textContent = term.trim();
+    activeFiltersContainer.classList.add('show');
+  } else {
+    activeFiltersContainer.classList.remove('show');
+  }
+}
+
+clearFilterBtn.addEventListener('click', () => {
+  searchBox.value = '';
+  runSearch('');
+});
+
+// Interactive Drill-Down: Clicking any bar filters the whole dashboard
+function bindClickFilter(chartId) {
+  const el = document.getElementById(chartId);
+  if (!el) return;
+  el.on('plotly_click', function(data) {
+    if (data && data.points && data.points[0]) {
+      const pt = data.points[0];
+      // Get whichever value is a string (category name, state name, etc.)
+      let term = '';
+      if (typeof pt.x === 'string') {
+        term = pt.x;
+      } else if (typeof pt.y === 'string') {
+        term = pt.y;
+      }
+      if (term) {
+        searchBox.value = term;
+        runSearch(term);
+        // Scroll to header area smoothly to make filter context obvious
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }
+    }
+  });
+}
+
+// ---------- CSV export ----------
+function toCSV(rows){
+  if(!rows || !rows.length) return '';
+  const cols = Object.keys(rows[0]);
+  const esc = v => {
+    const s = v===null||v===undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  };
+  return [cols.join(','), ...rows.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
+}
+document.querySelectorAll('.csv-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const key = btn.dataset.key, file = btn.dataset.file;
+    const rows = DATA[key];
+    const csv = toCSV(rows);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = file;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+});
+
+// ---------- Insights & Recommendations (computed live from DATA) ----------
+(function(){
+  const k = DATA.kpis;
+  const topCat = [...DATA.category].sort((a,b)=>b.revenue-a.revenue)[0];
+  const catShare = (topCat.revenue / k.total_revenue * 100).toFixed(1);
+  const bottomCats = [...DATA.category].sort((a,b)=>a.revenue-b.revenue).slice(0,2).map(d=>d.Category).join(' and ');
+
+  const cf = DATA.cancel_by_fulfilment;
+  const merchant = cf.find(d=>d.Fulfilment==='Merchant');
+  const amazon = cf.find(d=>d.Fulfilment==='Amazon');
+  const cancelGap = merchant && amazon ? (merchant.cancel_rate - amazon.cancel_rate).toFixed(1) : null;
+
+  const worstState = [...DATA.cancel_by_state].sort((a,b)=>b.cancel_rate-a.cancel_rate)[0];
+  const bestRevState = [...DATA.state].sort((a,b)=>b.revenue-a.revenue)[0];
+  const bestRevStateShare = (bestRevState.revenue / k.total_revenue * 100).toFixed(1);
+
+  const worstReturnCat = [...DATA.return_rate_category].sort((a,b)=>b.return_rate-a.return_rate)[0];
+
+  const busiestDow = [...DATA.dow].sort((a,b)=>b.orders-a.orders)[0];
+
+  const topSeg = [...DATA.order_value_segment].sort((a,b)=>b.count-a.count)[0];
+  const topSegShare = (topSeg.count / k.total_orders * 100).toFixed(1);
+
+  const b2bTop = [...DATA.b2b_by_state].sort((a,b)=>b.b2b_pct-a.b2b_pct)[0];
+
+  const findings = [
+    `<strong>${topCat.Category}</strong> drives ${catShare}% of total revenue (₹${(topCat.revenue/1e7).toFixed(2)} Cr) — by far the largest category, while ${bottomCats} contribute the least.`,
+    cancelGap ? `Merchant-fulfilled orders cancel at ${merchant.cancel_rate.toFixed(1)}%, ${cancelGap} percentage points higher than Amazon-fulfilled orders (${amazon.cancel_rate.toFixed(1)}%).` : '',
+    `${worstState.Ship_State} has the highest cancellation rate among top-revenue states, at ${worstState.cancel_rate.toFixed(1)}%.`,
+    `${bestRevState.Ship_State} is the single largest revenue state, contributing ${bestRevStateShare}% of total revenue.`,
+    `${worstReturnCat.Category} has the highest return rate of any category, at ${worstReturnCat.return_rate.toFixed(1)}%.`,
+    `${busiestDow.Order_DayOfWeek} is the busiest day of the week by order volume (${busiestDow.orders.toLocaleString()} orders).`,
+    `The <strong>${topSeg.Order_Value_Segment}</strong> order-value segment is the largest, making up ${topSegShare}% of all orders.`,
+    `${b2bTop.Ship_State} has the highest B2B order share among top-revenue states, at ${b2bTop.b2b_pct.toFixed(1)}%.`,
+    `Overall cancellation rate is ${k.cancel_rate.toFixed(1)}% and return rate is ${k.return_rate.toFixed(1)}%, against an average order value of ₹${k.avg_order_value.toFixed(0)}.`
+  ].filter(Boolean);
+
+  const recommendations = [
+    `<strong>Protect inventory for ${topCat.Category}</strong> — it anchors revenue, so stockouts there cost disproportionately more than in any other category.`,
+    cancelGap ? `<strong>Audit Merchant fulfilment</strong> — the ${cancelGap}-point cancellation gap versus Amazon fulfilment suggests process or reliability issues (packaging, dispatch delays, seller SLAs) worth investigating directly with merchant partners.` : '',
+    `<strong>Investigate ${worstState.Ship_State} operationally</strong> — its elevated cancellation rate may point to courier coverage gaps or delivery-time issues specific to that region rather than a demand problem.`,
+    `<strong>Double down on ${bestRevState.Ship_State}</strong> with targeted marketing and inventory placement, since it's already the top revenue contributor and likely has room to grow further with better local logistics.`,
+    `<strong>Review sizing/quality for ${worstReturnCat.Category}</strong> — a high return rate there is likely fit or expectation-mismatch, both fixable via better size charts or product photography.`,
+    `<strong>Plan staffing and stock replenishment around ${busiestDow.Order_DayOfWeek}</strong> peaks to avoid delays that could otherwise drive cancellations.`,
+    `<strong>Build offers around the ${topSeg.Order_Value_Segment} segment</strong>, since it represents the largest share of orders and is the most efficient lever for lifting overall revenue.`,
+    `<strong>Consider a dedicated B2B outreach in ${b2bTop.Ship_State}</strong> — its high business-buyer share suggests an existing wholesale/bulk demand pocket worth a tailored offer.`
+  ].filter(Boolean);
+
+  const html = `
+    <h4>Key findings</h4>
+    <ul>${findings.map(f=>`<li>${f}</li>`).join('')}</ul>
+    <h4>Recommendations</h4>
+    <ul>${recommendations.map(r=>`<li>${r}</li>`).join('')}</ul>
+  `;
+  document.getElementById('insightsBody').innerHTML = html;
+})();
+
+// ---------- Safety net: auto-hide any card whose chart has no real data ----------
+function hasRealData(gd){
+  if(!gd || !gd.data || !gd.data.length) return false;
+  return gd.data.some(trace=>{
+    const arrays = [trace.x, trace.y, trace.values, trace.z].filter(a=>Array.isArray(a) && a.length > 0);
+    if(!arrays.length) return false;
+    return arrays.some(arr => arr.some(v => v !== null && v !== undefined && v !== ''));
+  });
+}
+setTimeout(()=>{
+  document.querySelectorAll('[id^="chart"]').forEach(el=>{
+    if(!hasRealData(el)){
+      const card = el.closest('.card');
+      if(card) card.style.display = 'none';
+    }
+  });
+}, 300);
+</script>
+</body>
+</html>

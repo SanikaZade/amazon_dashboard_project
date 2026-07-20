@@ -1,7 +1,7 @@
 
 # Amazon Sales Executive BI Dashboard
 
-A fully interactive, browser-based Business Intelligence dashboard built on **128,017 Amazon India orders** (March – June 2022). 
+A fully interactive, browser-based Business Intelligence dashboard built on 128,017 Amazon India orders (March – June 2022). 
 ---
 
 ## What This Project Does

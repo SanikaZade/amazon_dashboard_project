@@ -172,18 +172,71 @@ def build_aggregates(df: pd.DataFrame) -> dict:
     b2b_state = b2b_state.sort_values("_order").drop(columns="_order")
     out["b2b_by_state"] = b2b_state.to_dict("records")
 
+    # Add dynamic filtering data structure: compressed column list
+    cats = sorted(df["Category"].dropna().unique().tolist())
+    states = sorted(df["Ship_State"].dropna().unique().tolist())
+    cities = sorted(df["Ship_City"].dropna().unique().tolist())
+    sizes = sorted(df["Size"].dropna().unique().tolist())
+    fulfils = sorted(df["Fulfilment"].dropna().unique().tolist())
+    statuses = sorted(df["Status_Group"].dropna().unique().tolist())
+    couriers = sorted(df["Courier_Status"].dropna().unique().tolist())
+    channels = sorted(df["Sales_Channel"].dropna().unique().tolist())
+    
+    # Dates: offset from minimum date in days
+    min_date = df["Date"].min()
+    df["date_offset"] = (df["Date"] - min_date).dt.days
+    min_date_str = str(min_date.date())
+
+    cat_map = {v: i for i, v in enumerate(cats)}
+    state_map = {v: i for i, v in enumerate(states)}
+    city_map = {v: i for i, v in enumerate(cities)}
+    size_map = {v: i for i, v in enumerate(sizes)}
+    fulfil_map = {v: i for i, v in enumerate(fulfils)}
+    status_map = {v: i for i, v in enumerate(statuses)}
+    courier_map = {v: i for i, v in enumerate(couriers)}
+    channel_map = {v: i for i, v in enumerate(channels)}
+
+    out["meta"] = {
+        "min_date": min_date_str,
+        "cats": cats,
+        "states": states,
+        "cities": cities,
+        "sizes": sizes,
+        "fulfils": fulfils,
+        "statuses": statuses,
+        "couriers": couriers,
+        "channels": channels
+    }
+
+    # Compress the dataframe into a row-oriented flat array of lists
+    out["transactions"] = {
+        "date": df["date_offset"].tolist(),
+        "cat": [cat_map[v] for v in df["Category"]],
+        "state": [state_map.get(v, -1) for v in df["Ship_State"]],
+        "city": [city_map.get(v, -1) for v in df["Ship_City"]],
+        "fulfil": [fulfil_map[v] for v in df["Fulfilment"]],
+        "status": [status_map[v] for v in df["Status_Group"]],
+        "courier": [courier_map.get(v, -1) for v in df["Courier_Status"]],
+        "channel": [channel_map.get(v, -1) for v in df["Sales_Channel"]],
+        "b2b": [1 if v else 0 for v in df["B2B"]],
+        "size": [size_map[v] for v in df["Size"]],
+        "qty": df["Qty"].tolist(),
+        "amount": df["Amount"].fillna(0).tolist(),
+        "amount_zero": [1 if v else 0 for v in df["Amount_Zero_Flag"]]
+    }
+
     return out
 
 
 def main():
     df = pd.read_csv(CSV_PATH)
     aggregates = build_aggregates(df)
-    JSON_PATH.write_text(json.dumps(aggregates, default=str))
+    JSON_PATH.write_text(json.dumps(aggregates, default=str), encoding="utf-8")
     print(f"Aggregated data written to {JSON_PATH} ({JSON_PATH.stat().st_size} bytes)")
 
-    template = TEMPLATE_PATH.read_text()
+    template = TEMPLATE_PATH.read_text(encoding="utf-8")
     html = template.replace("__DATA_JSON__", json.dumps(aggregates, default=str))
-    OUTPUT_PATH.write_text(html)
+    OUTPUT_PATH.write_text(html, encoding="utf-8")
     print(f"Dashboard rebuilt at {OUTPUT_PATH}")
 
 

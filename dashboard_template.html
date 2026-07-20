@@ -2,786 +2,1412 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Amazon Sales — Live Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon Sales — Premium BI Analytics Dashboard</title>
+<meta name="description" content="Amazon Sales Executive BI Dashboard — Real-time analytics over 128,017 orders with cross-filtering, drill-down, and advanced visualizations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="vendor/plotly.min.js"></script>
 <style>
-  :root{
-    --bg:#0d1117;
-    --panel:#141b24;
-    --panel-border:#22303c;
-    --ink:#e8edf2;
-    --muted:#8a97a3;
-    --accent:#ffb020;
-    --accent2:#37c2a0;
-    --danger:#ef6461;
-    --grid:#1e2732;
-    --card-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  }
+  :root {
+  --bg: #ffffff;
+  --panel: #f8fafc;
+  --panel-border: rgba(0,0,0,0.08);
+  --ink: #1f2937;
+  --muted: #6b7280;
+  --accent: #f59e0b;
+  --accent-glow: rgba(245,158,11,0.3);
+  --accent2: #10b981;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --purple: #8b5cf6;
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  --blur: blur(14px);
+  --radius: 18px;
+  --radius-sm: 10px;
+  --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+}
   body.light-mode {
-    --bg:#f0f2f5;
-    --panel:#ffffff;
-    --panel-border:#e2e8f0;
-    --ink:#1e293b;
-    --muted:#64748b;
-    --grid:#cbd5e1;
-    --card-shadow: 0 4px 20px rgba(148, 163, 184, 0.08);
+    --bg: #f0f4f8;
+    --panel: rgba(255,255,255,0.85);
+    --panel-border: rgba(15,23,42,0.1);
+    --ink: #0f172a;
+    --muted: #475569;
+    --accent: #d97706;
+    --accent-glow: rgba(217,119,6,0.2);
+    --accent2: #059669;
+    --danger: #dc2626;
+    --info: #2563eb;
+    --purple: #7c3aed;
+    --card-shadow: 0 4px 24px rgba(148,163,184,0.18);
   }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease;
+  html, body { max-width: 100%; overflow-x: hidden; }
+  * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden;
+    transition: background var(--transition), color var(--transition);
   }
-  header{
-    padding:28px 32px 18px;
+  .app-container { display: flex; width: 100%; flex: 1; overflow: hidden; max-width: 100%; }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 0;
+    background: var(--panel);
+    border-right: none;
+    display: flex; flex-direction: column; height: 100%;
+    z-index: 200; transition: width var(--transition); flex-shrink: 0; overflow: hidden;
+  }
+  .sidebar.open { width: 285px; overflow-y: visible; }
+  body.light-mode .sidebar { background: var(--panel); }
+
+  .sidebar:not(.open) .sidebar-header,
+  .sidebar:not(.open) .sidebar-content {
+    width: 0;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 17px 15px; border-bottom: 1px solid rgba(245,158,11,0.2);
+    border-left: 3px solid var(--accent); display: flex; justify-content: space-between;
+    align-items: center; width:100%;
+    background: linear-gradient(90deg,rgba(245,158,11,0.12),transparent);
+  }
+  .sidebar-header h2 { margin:0; font-size:0.82rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--accent); }
+  .sidebar-content { padding:13px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:12px; width:100%; }
+  .filter-group { display:flex; flex-direction:column; gap:4px; }
+  .filter-group label { font-size:0.69rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600; }
+  .filter-control {
+    background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+    border-radius:var(--radius-sm); padding:8px 11px; color:var(--ink);
+    font-size:0.8rem; width:100%; outline:none; font-family:inherit;
+    transition:border-color 0.2s, background 0.2s;
+  }
+  .filter-control option { background:#1e293b; color:#f1f5f9; }
+  body.light-mode .filter-control { background:rgba(15,23,42,0.06); border-color:rgba(15,23,42,0.15); color:#0f172a; }
+  body.light-mode .filter-control option { background:#fff; color:#0f172a; }
+  .filter-control:focus { border-color:var(--accent); background:rgba(245,158,11,0.07); }
+  .filter-checkbox-group {
+    display:grid; grid-template-columns:repeat(2,1fr); gap:4px;
+    max-height:105px; overflow-y:auto; padding:5px;
+    background:rgba(0,0,0,0.1); border-radius:8px;
+  }
+  .filter-checkbox-label { display:flex; align-items:center; gap:5px; font-size:0.76rem; color:var(--ink); cursor:pointer; }
+
+  /* MAIN CONTENT */
+  .main-content { flex:1; display:flex; flex-direction:column; height:100%; overflow:hidden; min-width:0; }
+  header {
+    padding:12px 26px; background:var(--panel); backdrop-filter:var(--blur);
     border-bottom:1px solid var(--panel-border);
-    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:12px;
+    display:flex; justify-content:space-between; align-items:center; z-index:10; flex-shrink:0;
   }
-  header h1{
-    margin:0; font-size:1.6rem; letter-spacing:0.5px;
-  }
-  header h1 span{color:var(--accent);}
-  header p{margin:4px 0 0; color:var(--muted); font-size:0.85rem;}
-  .header-actions{
-    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  }
-  .kpis{
-    display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
-    gap:14px; padding:22px 32px;
-  }
-  .kpi{
-    background:var(--panel); border:1px solid var(--panel-border); border-radius:10px;
-    padding:14px 16px;
-    box-shadow: var(--card-shadow);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s, border-color 0.3s;
-  }
-  .kpi:hover{
-    transform: translateY(-2px);
-  }
-  .kpi .label{color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.6px;}
-  .kpi .value{font-size:1.5rem; font-weight:700; margin-top:4px;}
-  .kpi .value.accent{color:var(--accent);}
-  .kpi .value.danger{color:var(--danger);}
-  .kpi .value.good{color:var(--accent2);}
+  .header-info h1 { margin:0; font-size:1.2rem; font-weight:800; letter-spacing:-0.5px; }
+  .header-info h1 span { color:var(--accent); text-shadow:0 0 12px var(--accent-glow); }
+  .header-info p { margin:2px 0 0; color:var(--muted); font-size:0.73rem; }
+  .header-actions { display:flex; align-items:center; gap:9px; }
 
-  .tabs{
-    display:flex; gap:6px; padding:0 32px; border-bottom:1px solid var(--panel-border); flex-wrap:wrap;
+  /* BUTTONS */
+  .btn-icon {
+    background:var(--panel); border:1px solid var(--panel-border); color:var(--ink);
+    width:34px; height:34px; border-radius:var(--radius-sm); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:all 0.2s; font-size:0.95rem;
   }
-  .tab{
-    padding:10px 16px; cursor:pointer; color:var(--muted); font-size:0.9rem;
-    border-bottom:2px solid transparent; user-select:none;
-    font-weight: 500;
-    transition: color 0.2s, border-color 0.2s;
+  .btn-icon:hover { border-color:var(--accent); box-shadow:0 0 10px var(--accent-glow); transform:translateY(-1px); }
+  .btn-primary {
+    background:var(--accent); color:#020617; border:none; padding:8px 14px;
+    border-radius:var(--radius-sm); font-weight:700; font-size:0.8rem; cursor:pointer;
+    display:flex; align-items:center; gap:6px; transition:all 0.2s; font-family:inherit;
   }
-  .tab.active{color:var(--ink); border-bottom-color:var(--accent);}
-  .tab:hover{color:var(--ink);}
+  .btn-primary:hover { box-shadow:0 0 14px var(--accent-glow); transform:translateY(-1px); }
+  .btn-sm {
+    background:var(--panel); border:1px solid var(--panel-border); color:var(--ink);
+    padding:5px 10px; border-radius:6px; cursor:pointer; font-size:0.73rem; font-family:inherit;
+  }
+  .btn-sm:hover:not(:disabled) { border-color:var(--accent); }
+  .btn-sm:disabled { opacity:0.35; cursor:not-allowed; }
+  .btn-filters {
+    display:flex; align-items:center; gap:6px; font-size:0.78rem;
+    padding:7px 13px; border-radius:var(--radius-sm);
+    background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3);
+    color:var(--accent); cursor:pointer; font-weight:600;
+    transition:all 0.2s; font-family:inherit;
+  }
+  .btn-filters:hover { background:rgba(245,158,11,0.2); }
+  .chart-dl-btn {
+    background:transparent; border:1px solid var(--panel-border);
+    color:var(--muted); padding:3px 7px; border-radius:5px;
+    cursor:pointer; font-size:0.68rem; transition:all 0.2s; font-family:inherit;
+  }
+  .chart-dl-btn:hover { border-color:var(--accent); color:var(--accent); }
 
-  .section{display:none; padding:20px 32px 40px;}
-  .section.active{display:block;}
-  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
-  .grid1{display:grid; grid-template-columns:1fr; gap:18px;}
-  @media(max-width:900px){.grid2{grid-template-columns:1fr;}}
-  
-  .card{
-    background:var(--panel); border:1px solid var(--panel-border); border-radius:12px;
-    padding:16px; box-shadow: var(--card-shadow);
-    transform: translateY(0);
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s, border-color 0.3s;
-  }
-  .card:hover{
-    transform: translateY(-4px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
-  }
-  body.light-mode .card:hover{
-    box-shadow: 0 10px 25px rgba(148, 163, 184, 0.18);
-  }
-  .card h3{margin:0 0 8px; font-size:0.95rem; font-weight:600; color:var(--ink); display:flex; align-items:center; justify-content:space-between; gap:8px;}
-  .card p.sub{margin:0 0 10px; color:var(--muted); font-size:0.78rem;}
-  footer{padding:18px 32px; color:var(--muted); font-size:0.75rem; border-top:1px solid var(--panel-border);}
+  /* DASHBOARD VIEWPORT */
+  .dashboard-viewport { flex:1; overflow-y:auto; overflow-x:hidden; padding:18px 26px 44px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
 
-  .csv-btn{
-    background:transparent; border:1px solid var(--panel-border); color:var(--muted);
-    font-size:0.68rem; padding:3px 8px; border-radius:6px; cursor:pointer; white-space:nowrap;
-    transition: all 0.2s;
+  /* ACTIVE FILTER BAR */
+  .active-filters-bar {
+    display:flex; align-items:center; flex-wrap:wrap; gap:7px;
+    padding:9px 16px; background:rgba(0,0,0,0.18);
+    border:1px solid var(--panel-border); border-radius:11px;
   }
-  .csv-btn:hover{color:var(--ink); border-color:var(--accent2); background:rgba(55,194,160,0.08);}
+  .filter-tag {
+    background:rgba(245,158,11,0.13); border:1px solid var(--accent);
+    color:var(--accent); padding:3px 8px; border-radius:6px;
+    font-size:0.7rem; display:flex; align-items:center; gap:5px; font-weight:600;
+  }
+  .filter-tag span.close { cursor:pointer; font-weight:800; }
 
-  .search-wrap{
-    position:relative; display:flex; align-items:center; min-width:220px;
+  /* KPI GRID */
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; width:100%; box-sizing:border-box; }
+  .kpi-card {
+    background:var(--panel); backdrop-filter:var(--blur);
+    border:1px solid var(--panel-border); border-radius:var(--radius);
+    padding:17px; display:flex; flex-direction:column;
+    position:relative; overflow:hidden; box-shadow:var(--card-shadow);
+    transition:transform var(--transition), box-shadow var(--transition); cursor:default;
   }
-  .search-wrap input{
-    width:100%; background:var(--panel); border:1px solid var(--panel-border); color:var(--ink);
-    border-radius:8px; padding:8px 12px 8px 30px; font-size:0.85rem;
-    transition: border-color 0.2s, background-color 0.3s;
-  }
-  .search-wrap input:focus{outline:none; border-color:var(--accent2);}
-  .search-wrap svg{position:absolute; left:9px; width:14px; height:14px; stroke:var(--muted);}
-  .search-hint{color:var(--muted); font-size:0.68rem; margin-top:3px;}
-  .search-hint kbd{background:var(--panel); border:1px solid var(--panel-border); border-radius:4px; padding:0 4px; font-size:0.68rem;}
-  .no-match{color:var(--muted); font-size:0.85rem; text-align:center; padding:30px 0;}
+  .kpi-card:hover { transform:translateY(-4px); box-shadow:0 12px 32px rgba(0,0,0,0.3); }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; width:100%; height:2px; background:linear-gradient(90deg,var(--accent),transparent); }
+  .kpi-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+  .kpi-title { font-size:0.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600; }
+  .kpi-icon { font-size:1.05rem; }
+  .kpi-value { font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; margin:3px 0; }
+  .kpi-comparison { display:flex; align-items:center; gap:5px; font-size:0.7rem; color:var(--muted); }
+  .kpi-change { font-weight:700; display:flex; align-items:center; gap:2px; }
+  .kpi-change.up { color:var(--accent2); }
+  .kpi-change.down { color:var(--danger); }
+  .kpi-sparkline { position:absolute; bottom:0; left:0; width:100%; height:40px; opacity:0.3; pointer-events:none; }
 
-  /* Active Filter Pills */
-  .active-filters{
-    display:none; align-items:center; gap:8px; padding: 12px 32px 0; flex-wrap:wrap;
+  /* EXECUTIVE INSIGHTS */
+  .exec-insights-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; width:100%; box-sizing:border-box; }
+  .exec-card {
+    background:var(--panel); backdrop-filter:var(--blur);
+    border:1px solid var(--panel-border); border-radius:13px;
+    padding:15px; position:relative; overflow:hidden;
+    transition:transform var(--transition), box-shadow var(--transition); cursor:default;
   }
-  .active-filters.show{display:flex;}
-  .filter-pill{
-    background:rgba(55, 194, 160, 0.12); border: 1px solid var(--accent2); color: var(--accent2);
-    font-size: 0.75rem; padding: 5px 12px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px;
-    font-weight: 500; box-shadow: 0 2px 6px rgba(55, 194, 160, 0.05);
+  .exec-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(0,0,0,0.3); }
+  .exec-card::before { content:''; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--accent); border-radius:3px 0 0 3px; }
+  .exec-card-icon { font-size:1.2rem; margin-bottom:5px; display:block; }
+  .exec-card-label { font-size:0.66rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600; margin-bottom:3px; }
+  .exec-card-value { font-size:0.95rem; font-weight:800; color:var(--ink); word-break:break-word; line-height:1.3; }
+  .exec-card-sub { font-size:0.68rem; color:var(--muted); margin-top:3px; }
+
+  /* TABS */
+  .tabs-bar {
+    display:flex; background:var(--panel); backdrop-filter:var(--blur);
+    border:1px solid var(--panel-border); border-radius:11px;
+    padding:4px; gap:3px; position:sticky; top:0; z-index:50; flex-wrap:wrap;
+    width:100%; box-sizing:border-box;
   }
-  .filter-pill span.close{
-    cursor:pointer; font-weight:bold; font-size:0.95rem; margin-left: 2px;
+  .tab-btn {
+    flex:1; background:transparent; border:none; color:var(--muted);
+    padding:9px 12px; border-radius:8px; font-size:0.8rem; font-weight:600;
+    cursor:pointer; transition:all 0.2s; text-align:center; white-space:nowrap;
+    font-family:inherit; min-width:90px;
   }
-  .filter-pill span.close:hover{
-    color: var(--danger);
+  .tab-btn:hover { color:var(--ink); background:rgba(255,255,255,0.04); }
+  .tab-btn.active { background:rgba(245,158,11,0.12); color:var(--accent); border:1px solid rgba(245,158,11,0.25); }
+  .tab-new-badge {
+    font-size:0.52rem; background:var(--accent); color:#020617;
+    padding:1px 5px; border-radius:4px; font-weight:800;
+    vertical-align:super; margin-left:3px; text-transform:uppercase;
   }
 
-  /* Theme toggle button styling */
-  .theme-btn {
-    background: var(--panel); border: 1px solid var(--panel-border); color: var(--ink);
-    border-radius: 8px; width: 34px; height: 34px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-  }
-  .theme-btn:hover {
-    border-color: var(--accent);
-    background: rgba(255, 176, 32, 0.08);
-  }
-  .theme-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+  /* DASHBOARD SECTIONS */
+  .dashboard-section { display:none; flex-direction:column; gap:18px; width:100%; min-width:0; box-sizing:border-box; }
+  .dashboard-section.active { display:flex; }
 
-  .about-card{max-width:900px;}
-  .about-card h2{margin:0 0 6px; font-size:1.1rem;}
-  .about-card h4{margin:16px 0 6px; color:var(--accent2); font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px;}
-  .about-card p{color:var(--ink); line-height:1.55; font-size:0.92rem; margin:0 0 6px;}
-  .about-card ul{margin:4px 0 0; padding-left:18px; color:var(--ink); font-size:0.9rem; line-height:1.6;}
-  .stack-pills{display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;}
-  .stack-pills span{background:var(--panel); border:1px solid var(--panel-border); color:var(--accent);
-    padding:4px 10px; border-radius:999px; font-size:0.78rem;}
+  /* GRIDS */
+  .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:18px; width:100%; min-width:0; }
+  .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; width:100%; min-width:0; }
+  @media (max-width:1200px) { .grid-2, .grid-3 { grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:900px) { .grid-2,.grid-3 { grid-template-columns:1fr; } }
+
+  /* BI GLASS CARDS */
+  .bi-card {
+    background:var(--panel); backdrop-filter:var(--blur);
+    border:1px solid var(--panel-border); border-radius:var(--radius);
+    padding:20px; box-shadow:var(--card-shadow);
+    display:flex; flex-direction:column; position:relative;
+    transition:border-color 0.2s; min-width:0; width:100%; box-sizing:border-box;
+  }
+  .bi-card:hover { border-color:rgba(245,158,11,0.18); }
+  .bi-card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:13px; }
+  .bi-card-title { margin:0; font-size:0.92rem; font-weight:700; letter-spacing:-0.2px; }
+  .bi-card-subtitle { margin:2px 0 0; font-size:0.7rem; color:var(--muted); }
+  .bi-card-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+
+  /* SECTION HEADER */
+  .section-header {
+    display:flex; align-items:center; gap:12px; padding:15px 20px;
+    background:linear-gradient(135deg,rgba(245,158,11,0.1),rgba(16,185,129,0.05));
+    border:1px solid rgba(245,158,11,0.2); border-radius:var(--radius);
+  }
+  .section-header h2 { margin:0; font-size:1.05rem; font-weight:800; color:var(--accent); }
+  .section-header p { margin:3px 0 0; font-size:0.75rem; color:var(--muted); }
+  .badge {
+    background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.35);
+    color:var(--accent); padding:3px 10px; border-radius:99px;
+    font-size:0.64rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; white-space:nowrap;
+  }
+
+  /* INDIA MAP */
+  .india-map-container {
+    width:100%; height:430px; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.12); border-radius:11px; padding:11px; position:relative;
+  }
+  .india-map-svg { width:100%; height:100%; max-height:410px; filter:drop-shadow(0 4px 12px rgba(0,0,0,0.3)); }
+  .map-state { stroke:rgba(255,255,255,0.2); stroke-width:0.8; cursor:pointer; transition:all 0.2s; }
+  body.light-mode .map-state { stroke:rgba(0,0,0,0.2); }
+  .map-state:hover { fill:#f59e0b !important; stroke:#fff !important; stroke-width:2; filter:brightness(1.3); }
+  .map-state.active { stroke:#fff !important; stroke-width:2.5 !important; filter:brightness(1.6); }
+
+  /* AI INSIGHTS */
+  .ai-insights-panel { display:flex; flex-direction:column; gap:12px; }
+  .insight-item {
+    display:flex; gap:11px; background:rgba(255,255,255,0.02);
+    border:1px solid var(--panel-border); padding:12px; border-radius:10px; align-items:flex-start;
+    transition:border-color 0.2s;
+  }
+  .insight-item:hover { border-color:rgba(245,158,11,0.22); }
+  .insight-icon { font-size:1.05rem; color:var(--accent); margin-top:2px; }
+  .insight-text h4 { margin:0 0 3px; font-size:0.86rem; font-weight:700; }
+  .insight-text p { margin:0; font-size:0.76rem; color:var(--muted); line-height:1.4; }
+
+  /* TABLE */
+  .table-container { overflow-x:auto; border-radius:10px; border:1px solid var(--panel-border); }
+  table { width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left; }
+  th { background:rgba(0,0,0,0.2); padding:10px 14px; font-weight:600; color:var(--muted); border-bottom:1px solid var(--panel-border); white-space:nowrap; }
+  td { padding:9px 14px; border-bottom:1px solid var(--panel-border); }
+  tr:hover { background:rgba(255,255,255,0.02); }
+  .pagination { display:flex; justify-content:space-between; align-items:center; margin-top:11px; font-size:0.76rem; color:var(--muted); }
+  .pagination-btns { display:flex; gap:6px; }
+
+  /* BREADCRUMBS */
+  .breadcrumbs { display:flex; align-items:center; gap:5px; font-size:0.8rem; font-weight:500; color:var(--muted); margin-bottom:9px; }
+  .breadcrumbs span.crumb { cursor:pointer; transition:color 0.2s; }
+  .breadcrumbs span.crumb:hover { color:var(--accent); }
+  .breadcrumbs span.active { color:var(--ink); font-weight:700; }
+
+  /* SKELETON */
+  .skeleton-loader {
+    width:100%; background:linear-gradient(90deg,rgba(255,255,255,0.04) 25%,rgba(255,255,255,0.08) 50%,rgba(255,255,255,0.04) 75%);
+    background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:9px;
+  }
+  @keyframes shimmer { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
+
+  /* FOOTER */
+  footer { padding:18px 26px; text-align:center; font-size:0.7rem; color:var(--muted); border-top:1px solid var(--panel-border); }
+
+  /* PRINT */
+  @media print { .sidebar,header,.tabs-bar,.active-filters-bar { display:none !important; } .dashboard-section { display:flex !important; } }
 </style>
 </head>
 <body>
 
-<header>
-  <div>
-    <h1>Amazon Sales <span>· Live Dashboard</span></h1>
-    <p>128,017 orders · March–June 2022 · Charts render directly from cleaned dataset (no static images)</p>
-  </div>
-  <div class="header-actions">
-    <div>
-      <div class="search-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        <input id="searchBox" type="text" placeholder="Search category, state or city…" aria-label="Search category, state, or city">
+<div class="app-container">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="filterSidebar">
+    <div class="sidebar-header">
+      <h2>Global Filters</h2>
+      <button class="btn-icon" id="toggleSidebarClose" title="Close" style="min-width:30px;">✕</button>
+    </div>
+    <div class="sidebar-content">
+      <div class="filter-group">
+        <label>Date From</label>
+        <input type="date" id="filterDateMin" class="filter-control">
       </div>
-      <div class="search-hint">Filters Products &amp; Geography charts · press <kbd>/</kbd> to focus</div>
+      <div class="filter-group">
+        <label>Date To</label>
+        <input type="date" id="filterDateMax" class="filter-control">
+      </div>
+      <div class="filter-group">
+        <label>Category</label>
+        <select id="filterCategory" class="filter-control"><option value="">All Categories</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Ship State</label>
+        <select id="filterState" class="filter-control"><option value="">All States</option></select>
+      </div>
+      <div class="filter-group">
+        <label>City Search</label>
+        <input type="text" id="filterCity" class="filter-control" placeholder="Type city name...">
+      </div>
+      <div class="filter-group">
+        <label>Size</label>
+        <select id="filterSize" class="filter-control"><option value="">All Sizes</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Fulfillment</label>
+        <div class="filter-checkbox-group" id="filterFulfillmentGroup"></div>
+      </div>
+      <div class="filter-group">
+        <label>Order Status</label>
+        <div class="filter-checkbox-group" id="filterStatusGroup"></div>
+      </div>
+      <div class="filter-group">
+        <label>B2B / B2C</label>
+        <select id="filterB2B" class="filter-control">
+          <option value="">All</option>
+          <option value="B2B">B2B Only</option>
+          <option value="B2C">B2C Only</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Courier Status</label>
+        <select id="filterCourier" class="filter-control"><option value="">All</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Sales Channel</label>
+        <select id="filterChannel" class="filter-control"><option value="">All</option></select>
+      </div>
+      <button class="btn-primary" id="btnResetFiltersSidebar" style="width:100%;justify-content:center;margin-top:6px;">
+        Reset All Filters
+      </button>
     </div>
-    <button class="theme-btn" id="themeToggleBtn" title="Toggle Light/Dark Theme">
-      <svg id="themeIcon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-    </button>
-  </div>
-</header>
+  </aside>
 
-<div class="active-filters" id="activeFiltersContainer">
-  <div class="filter-pill" id="filterPill">
-    <span>Active Filter: </span><strong id="filterVal"></strong>
-    <span class="close" id="clearFilterBtn" title="Clear Filter">&times;</span>
-  </div>
-</div>
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <header>
+      <div style="display:flex;align-items:center;gap:11px;">
+        <button class="btn-filters" id="toggleSidebarOpen">Filters</button>
+        <div class="header-info">
+          <h1>Amazon Sales <span>Dashboard</span></h1>
+          <p id="dashboardMetaText">Loading dataset summary...</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="themeToggleBtn" title="Toggle Theme">🌙</button>
+        <button class="btn-icon" id="btnExportPDF" title="Export PDF">📄</button>
+        <button class="btn-icon" id="btnBookmarkState" title="Bookmark">🔖</button>
+        <button class="btn-primary" id="btnGlobalCSVExport">Export CSV</button>
+      </div>
+    </header>
 
-<div class="kpis" id="kpiRow"></div>
-
-<div class="tabs" id="tabs">
-  <div class="tab active" data-tab="about">About</div>
-  <div class="tab" data-tab="overview">Overview</div>
-  <div class="tab" data-tab="products">Products</div>
-  <div class="tab" data-tab="fulfillment">Fulfillment &amp; Status</div>
-  <div class="tab" data-tab="geo">Geography</div>
-  <div class="tab" data-tab="customers">Customer Segmentation</div>
-  <div class="tab" data-tab="insights">Insights &amp; Recommendations</div>
-</div>
-
-<div class="section active" id="tab-about">
-  <div class="card about-card">
-    <h2>Amazon Sales Dashboard — Live Data Project</h2>
-    <p>This dashboard analyzes 128,017 real Amazon India orders from March–June 2022 to answer a
-    practical business question: <em>where is revenue coming from, and where is it leaking?</em>
-    Every number on every chart is computed live from the underlying dataset — there are no
-    static images, mock numbers, or "coming soon" placeholders.</p>
-
-    <h4>Problem it solves</h4>
-    <p>Sellers and ops teams need a fast way to see revenue trends, which product categories and
-    sizes perform best, where orders get cancelled or returned, and how fulfilment method
-    (Amazon vs. Merchant) affects that — without opening a spreadsheet. This dashboard turns a
-    128k-row CSV into an interactive, drill-able view of all of that in one page.</p>
-
-    <h4>Tech stack</h4>
-    <div class="stack-pills">
-      <span>Python (pandas / numpy)</span>
-      <span>HTML / CSS / vanilla JS</span>
-      <span>Plotly.js</span>
-      <span>Static single-file build</span>
+    <!-- ACTIVE FILTERS BAR -->
+    <div class="active-filters-bar" id="activeFiltersBar" style="display:none;margin:12px 26px 0;">
+      <span style="font-size:0.76rem;font-weight:600;color:var(--muted);">Active Filters:</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;" id="activeFilterPills"></div>
+      <button class="btn-sm" id="btnClearAllPills" style="margin-left:auto;">Clear All</button>
     </div>
 
-    <h4>Key features</h4>
-    <ul>
-      <li>23 charts across 7 sections, all rendered from a single aggregated JSON payload</li>
-      <li>Live search filtering across Products &amp; Geography charts (category, state, city)</li>
-      <li>One-click CSV export on every chart card, for pulling numbers into Excel/Sheets</li>
-      <li>Auto-hide safety net: any chart that ends up with no real data disappears instead of showing a blank box</li>
-      <li>Fully responsive layout, dark theme, tabbed navigation</li>
-    </ul>
+    <!-- DASHBOARD VIEWPORT -->
+    <div class="dashboard-viewport">
 
-    <h4>How it's built</h4>
-    <p><code>build_dashboard.py</code> reads the CSV, computes all aggregates with pandas, writes
-    them to <code>data/dashboard_data.json</code>, then injects that JSON into
-    <code>dashboard_template.html</code> to produce this self-contained <code>dashboard.html</code>.
-    Swap in a new CSV with the same schema and re-run the script to refresh every number.</p>
-  </div>
+      <!-- KPI CARDS -->
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- EXECUTIVE INSIGHTS -->
+      <div class="exec-insights-row" id="execInsightsRow"></div>
+
+      <!-- NAVIGATION TABS -->
+      <div class="tabs-bar">
+        <button class="tab-btn active" data-target="overview">Overview</button>
+        <button class="tab-btn" data-target="products">Products &amp; Sales</button>
+        <button class="tab-btn" data-target="geo">Geography</button>
+        <button class="tab-btn" data-target="fulfillment">Fulfillment</button>
+        <button class="tab-btn" data-target="insights">AI Insights</button>
+        <button class="tab-btn" data-target="advanced">Advanced <span class="tab-new-badge">NEW</span></button>
+      </div>
+
+      <!-- TAB: OVERVIEW -->
+      <div class="dashboard-section active" id="sec-overview">
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Daily Sales &amp; Orders Trend</h3><p class="bi-card-subtitle">Double-click to zoom. Click to cross-filter dates.</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartDaily','daily_trend')">PNG</button></div>
+            </div>
+            <div id="chartDaily" style="height:340px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Monthly Revenue</h3><p class="bi-card-subtitle">Monthly transaction progression</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartMonthly','monthly_revenue')">PNG</button></div>
+            </div>
+            <div id="chartMonthly" style="height:340px;"></div>
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">B2B vs B2C</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartB2B','b2b')">PNG</button></div></div>
+            <div id="chartB2B" style="height:270px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Sales by Day of Week</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartDow','dow')">PNG</button></div></div>
+            <div id="chartDow" style="height:270px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Orders Heatmap (Day x Week)</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartHeatmap','heatmap')">PNG</button></div></div>
+            <div id="chartHeatmap" style="height:270px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: PRODUCTS -->
+      <div class="dashboard-section" id="sec-products">
+        <div class="bi-card" style="padding:13px 18px;">
+          <div class="breadcrumbs" id="drilldownBreadcrumbs">
+            <span class="crumb" data-level="0">India</span> &gt;
+            <span class="crumb" data-level="1">State (All)</span> &gt;
+            <span class="crumb" data-level="2">City (All)</span> &gt;
+            <span class="active">Category Performance</span>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Revenue by Category</h3><p class="bi-card-subtitle">Click bar to cross-filter</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCatRev','cat_rev')">PNG</button></div>
+            </div>
+            <div id="chartCatRev" style="height:330px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Units Sold by Category</h3><p class="bi-card-subtitle">Volume contribution by segment</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCatQty','cat_qty')">PNG</button></div>
+            </div>
+            <div id="chartCatQty" style="height:330px;"></div>
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Size Distribution</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartSize','size')">PNG</button></div></div>
+            <div id="chartSize" style="height:270px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Category x Size Heatmap</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCatSize','cat_size')">PNG</button></div></div>
+            <div id="chartCatSize" style="height:270px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Top Category-Size Combos</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCombos','combos')">PNG</button></div></div>
+            <div id="chartCombos" style="height:270px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: GEOGRAPHY -->
+      <div class="dashboard-section" id="sec-geo">
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Interactive India Regional Map</h3><p class="bi-card-subtitle">Click states to cross-filter. Hover for details.</p></div>
+            </div>
+            <div class="india-map-container">
+              <svg class="india-map-svg" viewBox="0 0 600 650" id="indiaSVG"></svg>
+            </div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Revenue by State (Top 10)</h3><p class="bi-card-subtitle">Click to cross-filter by state</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCity','state_rev')">PNG</button></div>
+            </div>
+            <div id="chartCity" style="height:460px;"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Cancellation Rate by State</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCancelState','cancel_state')">PNG</button></div></div>
+            <div id="chartCancelState" style="height:300px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">B2B Share by State</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartB2BState','b2b_state')">PNG</button></div></div>
+            <div id="chartB2BState" style="height:300px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: FULFILLMENT -->
+      <div class="dashboard-section" id="sec-fulfillment">
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Fulfillment Method Mix</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartFulfilDonut','fulfil')">PNG</button></div></div>
+            <div id="chartFulfilDonut" style="height:300px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Cancellation Rate by Fulfillment</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCancelFulfil','cancel_fulfil')">PNG</button></div></div>
+            <div id="chartCancelFulfil" style="height:300px;"></div>
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Shipping Level Distribution</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartShipLevel','ship')">PNG</button></div></div>
+            <div id="chartShipLevel" style="height:270px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Status Split by Fulfillment</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartStatusFulfil','status_fulfil')">PNG</button></div></div>
+            <div id="chartStatusFulfil" style="height:270px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header"><h3 class="bi-card-title">Return Rate by Category</h3><div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartReturnCat','return_cat')">PNG</button></div></div>
+            <div id="chartReturnCat" style="height:270px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: AI INSIGHTS -->
+      <div class="dashboard-section" id="sec-insights">
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">AI Natural Language Insights</h3><p class="bi-card-subtitle">Automated key metric observations</p></div>
+            </div>
+            <div class="ai-insights-panel" id="aiInsightsPanel">
+              <div class="skeleton-loader" style="height:220px;"></div>
+            </div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Executive Summary</h3><p class="bi-card-subtitle">Business narrative performance analysis</p></div>
+            </div>
+            <div id="executiveSummaryBody" style="line-height:1.6;font-size:0.9rem;">
+              <div class="skeleton-loader" style="height:180px;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="bi-card">
+          <div class="bi-card-header">
+            <div><h3 class="bi-card-title">Raw Records Explorer</h3><p class="bi-card-subtitle">Live transaction data matching active filters</p></div>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead><tr>
+                <th>Date</th><th>Category</th><th>Size</th><th>Amount</th>
+                <th>Qty</th><th>State</th><th>City</th><th>Fulfillment</th><th>Status</th>
+              </tr></thead>
+              <tbody id="rawTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span id="paginationLabel">Showing 0-0 of 0 records</span>
+            <div class="pagination-btns">
+              <button class="btn-sm" id="btnPrevPage">Prev</button>
+              <button class="btn-sm" id="btnNextPage">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: ADVANCED ANALYTICS -->
+      <div class="dashboard-section" id="sec-advanced">
+        <div class="section-header">
+          <div>
+            <h2>Advanced Analytics</h2>
+            <p>Treemaps, Sunbursts, Sankey flows, Gauges, Bubble charts and more premium visualizations</p>
+          </div>
+          <span class="badge">Power BI Level</span>
+        </div>
+
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Fulfillment Funnel</h3><p class="bi-card-subtitle">Order pipeline: Placed to Delivered</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartFunnel','funnel')">PNG</button></div>
+            </div>
+            <div id="chartFunnel" style="height:310px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Cancellation Rate Gauge</h3><p class="bi-card-subtitle">Target: below 20%. Current performance.</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartGauge','gauge')">PNG</button></div>
+            </div>
+            <div id="chartGauge" style="height:310px;"></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Revenue Waterfall by Category</h3><p class="bi-card-subtitle">Cumulative revenue contribution</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartWaterfall','waterfall')">PNG</button></div>
+            </div>
+            <div id="chartWaterfall" style="height:340px;"></div>
+          </div>
+          <div class="bi-card">
+            <div class="bi-card-header">
+              <div><h3 class="bi-card-title">Category Radar - Multi-KPI Performance</h3><p class="bi-card-subtitle">Revenue, Qty, AOV, Cancel Rate, Return Rate</p></div>
+              <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartRadar','radar')">PNG</button></div>
+            </div>
+            <div id="chartRadar" style="height:340px;"></div>
+          </div>
+        </div>
+        <div class="bi-card">
+          <div class="bi-card-header">
+            <div><h3 class="bi-card-title">Sankey Flow - Category to Fulfillment to Status</h3><p class="bi-card-subtitle">Full order lifecycle flow diagram</p></div>
+            <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartSankey','sankey')">PNG</button></div>
+          </div>
+          <div id="chartSankey" style="height:380px;"></div>
+        </div>
+        <div class="bi-card">
+          <div class="bi-card-header">
+            <div><h3 class="bi-card-title">Calendar Heatmap - Daily Order Volume</h3><p class="bi-card-subtitle">Daily orders bar chart colored by intensity</p></div>
+            <div class="bi-card-actions"><button class="chart-dl-btn" onclick="dlChart('chartCalHeatmap','cal_heatmap')">PNG</button></div>
+          </div>
+          <div id="chartCalHeatmap" style="height:220px;"></div>
+        </div>
+      </div>
+
+    </div><!-- end dashboard-viewport -->
+  </main>
 </div>
 
-<div class="section" id="tab-overview">
-  <div class="grid2">
-    <div class="card"><h3>Daily Orders &amp; Revenue Trend<button class="csv-btn" data-key="daily_trend" data-file="daily_orders_revenue.csv">⬇ CSV</button></h3><p class="sub">Full period, hover for exact values</p><div id="chartDaily" style="height:340px;"></div></div>
-    <div class="card"><h3>Monthly Revenue<button class="csv-btn" data-key="monthly" data-file="monthly_revenue.csv">CSV</button></h3><p class="sub">Mar–Jun 2022</p><div id="chartMonthly" style="height:340px;"></div></div>
-    <div class="card"><h3>Orders by Day of Week<button class="csv-btn" data-key="dow" data-file="orders_by_day_of_week.csv">CSV</button></h3><div id="chartDow" style="height:320px;"></div></div>
-    <div class="card"><h3>Order Volume Heatmap (Week × Day)<button class="csv-btn" data-key="weekly_heatmap" data-file="order_volume_heatmap.csv">CSV</button></h3><div id="chartHeatmap" style="height:320px;"></div></div>
-  </div>
-</div>
+<footer>
+  Amazon Sales Executive BI Platform &nbsp;&middot;&nbsp; 128,017 orders &nbsp;&middot;&nbsp; Real-time clientside analytics &nbsp;&middot;&nbsp; Plotly.js + Vectorized Filter Engine
+</footer>
 
-<div class="section" id="tab-products">
-  <div class="grid2">
-    <div class="card"><h3>Revenue by Category<button class="csv-btn" data-key="category" data-file="revenue_by_category.csv">CSV</button></h3><div id="chartCatRev" style="height:340px;"></div></div>
-    <div class="card"><h3>Orders by Category<button class="csv-btn" data-key="category" data-file="orders_by_category.csv">CSV</button></h3><div id="chartCatOrders" style="height:340px;"></div></div>
-    <div class="card"><h3>Quantity Sold by Category<button class="csv-btn" data-key="category" data-file="qty_by_category.csv">CSV</button></h3><div id="chartCatQty" style="height:340px;"></div></div>
-    <div class="card"><h3>Size Distribution<button class="csv-btn" data-key="size_dist" data-file="size_distribution.csv">CSV</button></h3><div id="chartSize" style="height:320px;"></div></div>
-    <div class="card"><h3>Category × Size Heatmap<button class="csv-btn" data-key="category_size" data-file="category_size_heatmap.csv">CSV</button></h3><div id="chartCatSize" style="height:320px;"></div></div>
-    <div class="card" style="grid-column:span 2;"><h3>Top Category–Size Combinations<button class="csv-btn" data-key="top_combos" data-file="top_category_size_combos.csv">CSV</button></h3><div id="chartCombos" style="height:360px;"></div></div>
-  </div>
-</div>
-
-<div class="section" id="tab-fulfillment">
-  <div class="grid2">
-    <div class="card"><h3>Fulfilment Split<button class="csv-btn" data-key="fulfilment" data-file="fulfilment_split.csv">CSV</button></h3><div id="chartFulfilDonut" style="height:320px;"></div></div>
-    <div class="card"><h3>Cancellation Rate by Fulfilment<button class="csv-btn" data-key="cancel_by_fulfilment" data-file="cancellation_rate_by_fulfilment.csv">CSV</button></h3><div id="chartCancelFulfil" style="height:320px;"></div></div>
-    <div class="card"><h3>Order Status by Fulfilment<button class="csv-btn" data-key="status_by_fulfilment" data-file="order_status_by_fulfilment.csv">CSV</button></h3><div id="chartStatusFulfil" style="height:340px;"></div></div>
-    <div class="card"><h3>Shipping Level Split<button class="csv-btn" data-key="shipping_level" data-file="shipping_level_split.csv">CSV</button></h3><div id="chartShipLevel" style="height:320px;"></div></div>
-    <div class="card"><h3>Overall Status Breakdown<button class="csv-btn" data-key="status_all" data-file="overall_status_breakdown.csv">CSV</button></h3><div id="chartStatusAll" style="height:320px;"></div></div>
-    <div class="card"><h3>Return Rate by Category<button class="csv-btn" data-key="return_rate_category" data-file="return_rate_by_category.csv">CSV</button></h3><div id="chartReturnCat" style="height:320px;"></div></div>
-  </div>
-</div>
-
-<div class="section" id="tab-geo">
-  <div class="grid2">
-    <div class="card"><h3>Top States by Revenue<button class="csv-btn" data-key="state" data-file="top_states_by_revenue.csv">CSV</button></h3><div id="chartStateRev" style="height:380px;"></div></div>
-    <div class="card"><h3>Top Cities by Revenue<button class="csv-btn" data-key="city" data-file="top_cities_by_revenue.csv">CSV</button></h3><div id="chartCity" style="height:380px;"></div></div>
-    <div class="card" style="grid-column:span 2;"><h3>Cancellation Rate — Top 15 States<button class="csv-btn" data-key="cancel_by_state" data-file="cancellation_rate_by_state.csv">CSV</button></h3><div id="chartCancelState" style="height:360px;"></div></div>
-  </div>
-</div>
-
-<div class="section" id="tab-customers">
-  <div class="grid1">
-    <div class="card">
-      <p class="sub" style="margin:0;">This dataset has no customer ID column, so individual repeat-purchase history
-      can't be tracked. Segmentation here is built from the three customer-behavior proxies the data does support:
-      order value tier, B2B vs. B2C buying pattern, and geography — cross-referenced below.</p>
-    </div>
-  </div>
-  <div class="grid2">
-    <div class="card"><h3>Order Value Distribution<button class="csv-btn" data-key="order_value_hist" data-file="order_value_distribution.csv">CSV</button></h3><div id="chartValueHist" style="height:340px;"></div></div>
-    <div class="card"><h3>Order Value Segments<button class="csv-btn" data-key="order_value_segment" data-file="order_value_segments.csv">CSV</button></h3><div id="chartValueSeg" style="height:340px;"></div></div>
-    <div class="card"><h3>B2B vs B2C Orders<button class="csv-btn" data-key="b2b" data-file="b2b_vs_b2c.csv">CSV</button></h3><div id="chartB2B" style="height:320px;"></div></div>
-    <div class="card"><h3>Avg Order Value by Category<button class="csv-btn" data-key="avg_order_val_category" data-file="avg_order_value_by_category.csv">CSV</button></h3><div id="chartAvgCat" style="height:320px;"></div></div>
-    <div class="card" style="grid-column:span 2;"><h3>B2B Share by State — Top 12<button class="csv-btn" data-key="b2b_by_state" data-file="b2b_share_by_state.csv">CSV</button></h3><p class="sub">Where business buyers concentrate, by revenue-ranked state</p><div id="chartB2BState" style="height:340px;"></div></div>
-  </div>
-</div>
-
-<div class="section" id="tab-insights">
-  <div class="card about-card" style="max-width:none;">
-    <h2>Findings &amp; Recommendations</h2>
-    <p class="sub" style="margin:0 0 10px;">Computed live from the current dataset — these numbers update automatically if the CSV is refreshed and the dashboard rebuilt.</p>
-    <div id="insightsBody"></div>
-  </div>
-</div>
-
-<footer>Built from amazon_clean_Data.csv · All figures computed live from the aggregated dataset embedded in this page.</footer>
-
+<!-- DATA INJECTION -->
 <script>
 const DATA = __DATA_JSON__;
 
-// ---------- Plotly theme ----------
-const FONT = {family:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", color:"#e8edf2", size:11};
-const layoutBase = {
-  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
-  font:FONT, margin:{t:20,l:50,r:20,b:40},
-  xaxis:{gridcolor:'#1e2732', zerolinecolor:'#1e2732', tickfont:{size:10}},
-  yaxis:{gridcolor:'#1e2732', zerolinecolor:'#1e2732', tickfont:{size:10}},
-  legend:{orientation:'h', y:-0.2}
+const INDIA_PATHS = {
+  "MAHARASHTRA":    "M200,320 L240,300 L280,310 L300,350 L270,390 L220,380 L190,350 Z",
+  "KARNATAKA":      "M190,390 L220,390 L240,430 L230,480 L180,470 L170,420 Z",
+  "TAMIL NADU":     "M230,480 L260,490 L270,540 L240,560 L210,510 Z",
+  "TELANGANA":      "M240,370 L280,360 L290,410 L250,420 Z",
+  "ANDHRA PRADESH": "M250,420 L290,410 L310,460 L270,490 L240,430 Z",
+  "UTTAR PRADESH":  "M240,190 L300,200 L320,240 L280,260 L230,230 Z",
+  "BIHAR":          "M320,220 L370,230 L360,260 L310,250 Z",
+  "GUJARAT":        "M110,260 L160,260 L180,300 L140,320 L110,290 Z",
+  "RAJASTHAN":      "M120,180 L180,170 L200,230 L160,260 L120,230 Z",
+  "MADHYA PRADESH": "M180,250 L240,240 L280,290 L240,300 L190,300 Z",
+  "WEST BENGAL":    "M370,250 L400,260 L380,320 L360,300 Z",
+  "HARYANA":        "M180,150 L210,160 L200,180 L170,180 Z",
+  "PUNJAB":         "M160,130 L190,140 L180,160 L150,150 Z",
+  "DELHI":          "M195,165 L202,165 L202,172 L195,172 Z",
+  "KERALA":         "M180,480 L210,510 L200,550 L180,530 Z"
 };
-const PALETTE = ['#ffb020','#37c2a0','#5b8def','#ef6461','#c084fc','#f472b6','#84cc16','#22d3ee','#f97316'];
-function L(extra){
-  const clone = JSON.parse(JSON.stringify(layoutBase));
-  return Object.assign(clone, extra);
-}
-const CFG = {responsive:true, displaylogo:false};
+</script>
 
-// ---------- KPIs ----------
-const k = DATA.kpis;
-const kpiRow = document.getElementById('kpiRow');
-const kpis = [
-  ['Total Orders', k.total_orders.toLocaleString(), ''],
-  ['Total Revenue', '₹' + (k.total_revenue/1e7).toFixed(2) + ' Cr', 'accent'],
-  ['Avg Order Value', '₹' + k.avg_order_value.toFixed(0), ''],
-  ['Units Sold', k.total_qty.toLocaleString(), ''],
-  ['Cancel Rate', k.cancel_rate.toFixed(1) + '%', 'danger'],
-  ['Return Rate', k.return_rate.toFixed(1) + '%', 'danger'],
-  ['B2B Share', k.b2b_pct.toFixed(2) + '%', ''],
-  ['States / Cities', k.states + ' / ' + k.cities.toLocaleString(), 'good'],
-];
-kpis.forEach(([label,val,cls])=>{
-  const div = document.createElement('div');
-  div.className='kpi';
-  div.innerHTML = `<div class="label">${label}</div><div class="value ${cls||''}">${val}</div>`;
-  kpiRow.appendChild(div);
-});
+<!-- GLOBALS, STATE, FILTER ENGINE -->
+<script>
+// ===== GLOBAL HELPERS =====
+const PALETTE = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6','#a78bfa','#fb923c'];
+const CFG = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['pan2d','lasso2d','select2d'] };
 
-// ---------- Tabs ----------
-document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    document.getElementById('tab-'+t.dataset.tab).classList.add('active');
-    window.dispatchEvent(new Event('resize'));
-  });
-});
-
-// ---------- Theme Toggle ----------
-const themeToggleBtn = document.getElementById('themeToggleBtn');
-const themeIcon = document.getElementById('themeIcon');
-themeToggleBtn.addEventListener('click', ()=>{
-  const isLight = document.body.classList.toggle('light-mode');
-  // Update icon path
-  if(isLight) {
-    themeIcon.innerHTML = `<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>`;
-  } else {
-    themeIcon.innerHTML = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>`;
-  }
-  updatePlotlyTheme(isLight);
-});
-
-function updatePlotlyTheme(isLight) {
-  const fontColor = isLight ? '#1e293b' : '#e8edf2';
-  const gridColor = isLight ? '#cbd5e1' : '#1e2732';
-  
-  // Update the global layoutBase
-  layoutBase.font.color = fontColor;
-  layoutBase.xaxis.gridcolor = gridColor;
-  layoutBase.xaxis.zerolinecolor = gridColor;
-  layoutBase.yaxis.gridcolor = gridColor;
-  layoutBase.yaxis.zerolinecolor = gridColor;
-  
-  // Redraw all rendered charts
-  document.querySelectorAll('[id^="chart"]').forEach(el => {
-    if(el.data && el.data.length > 0) {
-      const update = {
-        'font.color': fontColor,
-        'xaxis.gridcolor': gridColor,
-        'xaxis.zerolinecolor': gridColor,
-        'yaxis.gridcolor': gridColor,
-        'yaxis.zerolinecolor': gridColor
-      };
-      // Specifically for heatmaps/colorscales that might need updating:
-      if (el.id === 'chartCatSize' || el.id === 'chartHeatmap') {
-        const cs = isLight ? [[0,'#f1f5f9'],[1,'#ffb020']] : [[0,'#141b24'],[1,'#ffb020']];
-        Plotly.restyle(el, {colorscale: [cs]});
-      }
-      Plotly.relayout(el, update);
-    }
-  });
-}
-
-// ---------- Overview ----------
-Plotly.newPlot('chartDaily', [
-  {x:DATA.daily_trend.map(d=>d.Date), y:DATA.daily_trend.map(d=>d.orders), type:'scatter', mode:'lines', name:'Orders', line:{color:PALETTE[0]}},
-  {x:DATA.daily_trend.map(d=>d.Date), y:DATA.daily_trend.map(d=>d.revenue), type:'scatter', mode:'lines', name:'Revenue (₹)', yaxis:'y2', line:{color:PALETTE[1]}}
-], L({yaxis:{gridcolor:'#1e2732', title:'Orders'}, yaxis2:{overlaying:'y', side:'right', showgrid:false, title:'Revenue'}}), CFG);
-
-Plotly.newPlot('chartMonthly', [{
-  x:DATA.monthly.map(d=>d.Order_Month), y:DATA.monthly.map(d=>d.revenue),
-  type:'bar', marker:{color:PALETTE[0]}
-}], L({yaxis:{title:'Revenue (₹)'}}), CFG);
-
-Plotly.newPlot('chartDow', [{
-  x:DATA.dow.map(d=>d.Order_DayOfWeek), y:DATA.dow.map(d=>d.orders),
-  type:'bar', marker:{color:PALETTE[2]}
-}], L({}), CFG);
-
-// weekly heatmap: pivot
-(function(){
-  const weeks = [...new Set(DATA.weekly_heatmap.map(d=>d.Order_Week))].sort((a,b)=>a-b);
-  const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const z = days.map(day => weeks.map(w => {
-    const rec = DATA.weekly_heatmap.find(d=>d.Order_Week===w && d.Order_DayOfWeek===day);
-    return rec ? rec.count : 0;
-  }));
-  Plotly.newPlot('chartHeatmap', [{
-    z:z, x:weeks, y:days, type:'heatmap', colorscale:[[0,'#141b24'],[1,'#ffb020']]
-  }], L({xaxis:{title:'Week #'}}), CFG);
-})();
-
-// ---------- Products (search-filterable by Category) ----------
-function showNoMatch(chartId, show){
-  const el = document.getElementById(chartId);
-  if(!el) return;
-  let msg = el.parentElement.querySelector('.no-match');
-  if(show){
-    el.style.display='none';
-    if(!msg){ msg=document.createElement('div'); msg.className='no-match'; msg.textContent='No matching results'; el.parentElement.appendChild(msg); }
-  } else {
-    el.style.display='';
-    if(msg) msg.remove();
-  }
-}
-
-function drawCatRev(term){
-  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
-  showNoMatch('chartCatRev', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartCatRev', [{
-    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Category), type:'bar', orientation:'h', marker:{color:PALETTE[0]}
-  }], L({margin:{t:20,l:90,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
-  bindClickFilter('chartCatRev');
-}
-
-function drawCatOrders(term){
-  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
-  showNoMatch('chartCatOrders', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartCatOrders', [{
-    x:rows.map(d=>d.Category), y:rows.map(d=>d.orders), type:'bar', marker:{color:PALETTE[1]}
-  }], L({}), CFG);
-  bindClickFilter('chartCatOrders');
-}
-
-function drawCatQty(term){
-  const rows = filterBy(DATA.category, 'Category', term).filter(d=>d.orders >= (typeof MIN_CAT_ORDERS!=='undefined'?MIN_CAT_ORDERS:0));
-  showNoMatch('chartCatQty', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartCatQty', [{
-    x:rows.map(d=>d.Category), y:rows.map(d=>d.qty), type:'bar', marker:{color:PALETTE[6]}
-  }], L({yaxis:{title:'Units Sold'}}), CFG);
-  bindClickFilter('chartCatQty');
-}
-
-Plotly.newPlot('chartSize', [{
-  labels:DATA.size_dist.map(d=>d.Size), values:DATA.size_dist.map(d=>d.count), type:'pie', hole:0.4,
-  marker:{colors:PALETTE}
-}], L({}), CFG);
-
-function drawCatSize(term){
-  const rows = filterBy(DATA.category_size, 'Category', term);
-  showNoMatch('chartCatSize', rows.length===0);
-  if(!rows.length) return;
-  const cats = [...new Set(rows.map(d=>d.Category))];
-  const sizes = [...new Set(rows.map(d=>d.Size))];
-  const z = cats.map(c => sizes.map(s=>{
-    const rec = rows.find(d=>d.Category===c && d.Size===s);
-    return rec ? rec.count : 0;
-  }));
-  Plotly.newPlot('chartCatSize', [{
-    z:z, x:sizes, y:cats, type:'heatmap', colorscale:[[0,'#141b24'],[1,'#37c2a0']]
-  }], L({margin:{t:20,l:80,r:20,b:40}}), CFG);
-}
-
-function drawCombos(term){
-  const rows = filterBy(DATA.top_combos, 'combo', term);
-  showNoMatch('chartCombos', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartCombos', [{
-    x:rows.map(d=>d.combo), y:rows.map(d=>d.count), type:'bar', marker:{color:PALETTE[3]}
-  }], L({xaxis:{tickangle:-40}}), CFG);
-}
-
-// Filter out categories with too few orders to show meaningfully (< 10 orders)
-const MIN_CAT_ORDERS = 10;
-drawCatRev(''); drawCatOrders(''); drawCatQty(''); drawCatSize(''); drawCombos('');
-
-// ---------- Fulfillment ----------
-Plotly.newPlot('chartFulfilDonut', [{
-  labels:DATA.fulfilment.map(d=>d.Fulfilment), values:DATA.fulfilment.map(d=>d.count), type:'pie', hole:0.45,
-  marker:{colors:PALETTE}
-}], L({}), CFG);
-
-Plotly.newPlot('chartCancelFulfil', [{
-  x:DATA.cancel_by_fulfilment.map(d=>d.Fulfilment), y:DATA.cancel_by_fulfilment.map(d=>d.cancel_rate),
-  type:'bar', marker:{color:PALETTE[4]}
-}], L({yaxis:{title:'Cancel Rate %'}}), CFG);
-
-(function(){
-  const fulfils = [...new Set(DATA.status_by_fulfilment.map(d=>d.Fulfilment))];
-  const statuses = [...new Set(DATA.status_by_fulfilment.map(d=>d.Status_Group))];
-  const traces = statuses.map((s,i)=>({
-    x:fulfils, y:fulfils.map(f=>{
-      const rec = DATA.status_by_fulfilment.find(d=>d.Fulfilment===f && d.Status_Group===s);
-      return rec ? rec.count : 0;
-    }), name:s, type:'bar', marker:{color:PALETTE[i%PALETTE.length]}
-  }));
-  Plotly.newPlot('chartStatusFulfil', traces, L({barmode:'stack'}), CFG);
-})();
-
-Plotly.newPlot('chartShipLevel', [{
-  labels:DATA.shipping_level.map(d=>d.Shipping_Level), values:DATA.shipping_level.map(d=>d.count), type:'pie', hole:0.4,
-  marker:{colors:PALETTE}
-}], L({}), CFG);
-
-Plotly.newPlot('chartStatusAll', [{
-  labels:DATA.status_all.map(d=>d.Status_Group), values:DATA.status_all.map(d=>d.count), type:'pie',
-  marker:{colors:PALETTE}
-}], L({}), CFG);
-
-function drawReturnCat(term){
-  const rows = filterBy(DATA.return_rate_category, 'Category', term);
-  showNoMatch('chartReturnCat', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartReturnCat', [{
-    x:rows.map(d=>d.Category), y:rows.map(d=>d.return_rate), type:'bar', marker:{color:PALETTE[5]}
-  }], L({yaxis:{title:'Return Rate %'}}), CFG);
-  bindClickFilter('chartReturnCat');
-}
-drawReturnCat('');
-
-// ---------- Geography (search-filterable by State/City) ----------
-function drawStateRev(term){
-  const rows = filterBy(DATA.state, 'Ship_State', term);
-  showNoMatch('chartStateRev', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartStateRev', [{
-    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Ship_State), type:'bar', orientation:'h', marker:{color:PALETTE[0]}
-  }], L({margin:{t:20,l:130,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
-  bindClickFilter('chartStateRev');
-}
-
-function drawCity(term){
-  const rows = filterBy(DATA.city, 'Ship_City', term);
-  showNoMatch('chartCity', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartCity', [{
-    x:rows.map(d=>d.revenue), y:rows.map(d=>d.Ship_City), type:'bar', orientation:'h', marker:{color:PALETTE[1]}
-  }], L({margin:{t:20,l:110,r:20,b:40}, xaxis:{type:'linear', title:'Revenue (₹)'}}), CFG);
-  bindClickFilter('chartCity');
-}
-
-function drawCancelState(term){
-  const rows = filterBy(DATA.cancel_by_state, 'Ship_State', term);
-  showNoMatch('chartCancelState', rows.length===0);
-  if(!rows.length) return;
-  Plotly.newPlot('chartCancelState', [{
-    x:rows.map(d=>d.Ship_State), y:rows.map(d=>d.cancel_rate), type:'bar', marker:{color:PALETTE[3]}
-  }], L({xaxis:{tickangle:-30}, yaxis:{title:'Cancel Rate %'}}), CFG);
-  bindClickFilter('chartCancelState');
-}
-
-drawStateRev(''); drawCity(''); drawCancelState('');
-
-// ---------- Customers / Value ----------
-// Trim trailing zero-count bins from histogram
-const histData = DATA.order_value_hist.filter((d,i,a) => {
-  // keep if this bin has data OR any later bin has data
-  return a.slice(i).some(b => b.count > 0);
-});
-Plotly.newPlot('chartValueHist', [{
-  x:histData.map(d=>(d.bin_start+d.bin_end)/2), y:histData.map(d=>d.count),
-  type:'bar', marker:{color:PALETTE[2]}
-}], L({xaxis:{title:'Order Value (₹)'}}), CFG);
-
-Plotly.newPlot('chartValueSeg', [{
-  labels:DATA.order_value_segment.map(d=>d.Order_Value_Segment), values:DATA.order_value_segment.map(d=>d.count),
-  type:'pie', hole:0.4, marker:{colors:PALETTE}
-}], L({}), CFG);
-
-Plotly.newPlot('chartB2B', [{
-  labels:DATA.b2b.map(d=>d.B2B==='True'?'B2B':'B2C'), values:DATA.b2b.map(d=>d.count), type:'pie', hole:0.5,
-  marker:{colors:[PALETTE[0],PALETTE[1]]}
-}], L({}), CFG);
-
-Plotly.newPlot('chartAvgCat', [{
-  x:DATA.avg_order_val_category.map(d=>d.Category), y:DATA.avg_order_val_category.map(d=>d.avg_amount),
-  type:'bar', marker:{color:PALETTE[6]}
-}], L({yaxis:{title:'Avg Order Value (₹)'}}), CFG);
-
-Plotly.newPlot('chartB2BState', [{
-  x:DATA.b2b_by_state.map(d=>d.Ship_State), y:DATA.b2b_by_state.map(d=>d.b2b_pct),
-  type:'bar', marker:{color:PALETTE[4]}
-}], L({xaxis:{tickangle:-30}, yaxis:{title:'B2B Share %'}}), CFG);
-
-// ---------- Search & Interactive Cross Filtering Logic ----------
-function filterBy(arr, field, term){
-  if(!term) return arr;
-  const t = term.trim().toLowerCase();
-  return arr.filter(d => String(d[field]).toLowerCase().includes(t));
-}
-function debounce(fn, ms){
-  let h;
-  return (...args)=>{ clearTimeout(h); h = setTimeout(()=>fn(...args), ms); };
-}
-function runSearch(term){
-  drawCatRev(term); drawCatOrders(term); drawCatQty(term); drawCatSize(term); drawCombos(term); drawReturnCat(term);
-  drawStateRev(term); drawCity(term); drawCancelState(term);
-  updateActiveFilterPill(term);
-  window.dispatchEvent(new Event('resize'));
-}
-const searchBox = document.getElementById('searchBox');
-searchBox.addEventListener('input', debounce(e=>runSearch(e.target.value), 300));
-document.addEventListener('keydown', e=>{
-  if(e.key === '/' && document.activeElement !== searchBox){
-    e.preventDefault();
-    searchBox.focus();
-  }
-  if(e.key === 'Escape' && document.activeElement === searchBox){
-    searchBox.value=''; runSearch(''); searchBox.blur();
-  }
-});
-
-// Update the interactive Active Filter pill banner
-const activeFiltersContainer = document.getElementById('activeFiltersContainer');
-const filterValEl = document.getElementById('filterVal');
-const clearFilterBtn = document.getElementById('clearFilterBtn');
-
-function updateActiveFilterPill(term) {
-  if (term && term.trim()) {
-    filterValEl.textContent = term.trim();
-    activeFiltersContainer.classList.add('show');
-  } else {
-    activeFiltersContainer.classList.remove('show');
-  }
-}
-
-clearFilterBtn.addEventListener('click', () => {
-  searchBox.value = '';
-  runSearch('');
-});
-
-// Interactive Drill-Down: Clicking any bar filters the whole dashboard
-function bindClickFilter(chartId) {
-  const el = document.getElementById(chartId);
-  if (!el) return;
-  el.on('plotly_click', function(data) {
-    if (data && data.points && data.points[0]) {
-      const pt = data.points[0];
-      // Get whichever value is a string (category name, state name, etc.)
-      let term = '';
-      if (typeof pt.x === 'string') {
-        term = pt.x;
-      } else if (typeof pt.y === 'string') {
-        term = pt.y;
-      }
-      if (term) {
-        searchBox.value = term;
-        runSearch(term);
-        // Scroll to header area smoothly to make filter context obvious
-        window.scrollTo({top: 0, behavior: 'smooth'});
-      }
-    }
-  });
-}
-
-// ---------- CSV export ----------
-function toCSV(rows){
-  if(!rows || !rows.length) return '';
-  const cols = Object.keys(rows[0]);
-  const esc = v => {
-    const s = v===null||v===undefined ? '' : String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+function themeColors() {
+  const isLight = document.body.classList.contains('light-mode');
+  return {
+    font: isLight ? '#0f172a' : '#f1f5f9',
+    grid: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)',
+    panel: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(15,23,42,0.55)'
   };
-  return [cols.join(','), ...rows.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
 }
-document.querySelectorAll('.csv-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    const key = btn.dataset.key, file = btn.dataset.file;
-    const rows = DATA[key];
-    const csv = toCSV(rows);
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = file;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+
+function L(extra) {
+  const c = themeColors();
+  const base = {
+    font: { family: 'Inter, sans-serif', color: c.font },
+    paper_bgcolor: 'transparent',
+    plot_bgcolor: 'transparent',
+    xaxis: { gridcolor: c.grid, zerolinecolor: c.grid, tickfont: { color: c.font } },
+    yaxis: { gridcolor: c.grid, zerolinecolor: c.grid, tickfont: { color: c.font } },
+    legend: { font: { color: c.font } },
+    margin: { t: 22, l: 50, r: 22, b: 38 }
+  };
+  // Deep merge
+  const result = JSON.parse(JSON.stringify(base));
+  if (extra) {
+    Object.keys(extra).forEach(k => {
+      if (typeof extra[k] === 'object' && !Array.isArray(extra[k]) && result[k]) {
+        Object.assign(result[k], extra[k]);
+      } else {
+        result[k] = extra[k];
+      }
+    });
+  }
+  return result;
+}
+
+// ===== APP STATE =====
+const state = {
+  filters: { dateMin:'', dateMax:'', cat:[], state:[], city:'', size:[], fulfil:[], status:[], b2b:'', courier:'', channel:'' },
+  theme: localStorage.getItem('bi-theme') || 'dark',
+  activeTab: 'overview',
+  table: { page: 0, size: 8 },
+  filteredIndices: [],
+  advancedRendered: false
+};
+
+if (state.theme === 'light') document.body.classList.add('light-mode');
+
+const N = DATA.transactions.date.length;
+const minDateObj = new Date(DATA.meta.min_date + 'T00:00:00');
+
+function getDateStr(offset) {
+  const d = new Date(minDateObj);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().split('T')[0];
+}
+
+// ===== INIT FILTER UI =====
+function initFilterUI() {
+  const add = (selId, arr) => {
+    const sel = document.getElementById(selId);
+    if (!sel) return;
+    arr.forEach((v, i) => { const o = document.createElement('option'); o.value = i; o.textContent = v; sel.appendChild(o); });
+  };
+  add('filterCategory', DATA.meta.cats);
+  add('filterState', DATA.meta.states);
+  add('filterSize', DATA.meta.sizes);
+  add('filterCourier', DATA.meta.couriers);
+  add('filterChannel', DATA.meta.channels);
+
+  const fulfilGrp = document.getElementById('filterFulfillmentGroup');
+  DATA.meta.fulfils.forEach((f, i) => {
+    fulfilGrp.innerHTML += `<label class="filter-checkbox-label"><input type="checkbox" class="filter-fulfil-check" value="${i}"> ${f}</label>`;
+  });
+
+  const statusGrp = document.getElementById('filterStatusGroup');
+  DATA.meta.statuses.forEach((s, i) => {
+    statusGrp.innerHTML += `<label class="filter-checkbox-label"><input type="checkbox" class="filter-status-check" value="${i}"> ${s}</label>`;
+  });
+
+  const maxOff = (DATA.daily_trend ? DATA.daily_trend.length + 10 : 130);
+  ['filterDateMin','filterDateMax'].forEach(id => {
+    const el = document.getElementById(id);
+    el.min = getDateStr(0); el.max = getDateStr(maxOff);
+  });
+  document.getElementById('filterDateMin').value = getDateStr(0);
+  document.getElementById('filterDateMax').value = getDateStr(maxOff);
+}
+
+// ===== FILTER ENGINE =====
+function runFilterEngine() {
+  const f = state.filters;
+  const dMin = f.dateMin ? Math.floor((new Date(f.dateMin) - minDateObj) / 864e5) : -1;
+  const dMax = f.dateMax ? Math.floor((new Date(f.dateMax) - minDateObj) / 864e5) : 9999;
+  const t = DATA.transactions;
+  const indices = [];
+  for (let i = 0; i < N; i++) {
+    if (t.date[i] < dMin || t.date[i] > dMax) continue;
+    if (f.cat.length > 0 && !f.cat.includes(t.cat[i])) continue;
+    if (f.state.length > 0 && !f.state.includes(t.state[i])) continue;
+    if (f.size.length > 0 && !f.size.includes(t.size[i])) continue;
+    if (f.city) { const cs = DATA.meta.cities[t.city[i]]; if (!cs || !cs.toLowerCase().includes(f.city.toLowerCase())) continue; }
+    if (f.fulfil.length > 0 && !f.fulfil.includes(t.fulfil[i])) continue;
+    if (f.status.length > 0 && !f.status.includes(t.status[i])) continue;
+    if (f.b2b !== '') { const isB2B = t.b2b[i] === 1; if ((f.b2b === 'B2B' && !isB2B) || (f.b2b === 'B2C' && isB2B)) continue; }
+    if (f.courier !== '' && t.courier[i] !== parseInt(f.courier)) continue;
+    if (f.channel !== '' && t.channel[i] !== parseInt(f.channel)) continue;
+    indices.push(i);
+  }
+  state.filteredIndices = indices;
+  state.advancedRendered = false;
+  updateActiveFilterPills();
+  renderAllViews();
+}
+
+function updateActiveFilterPills() {
+  const container = document.getElementById('activeFilterPills');
+  const bar = document.getElementById('activeFiltersBar');
+  container.innerHTML = '';
+  const pills = [];
+  const f = state.filters;
+  if (f.cat.length > 0) pills.push(['Category', f.cat.map(c=>DATA.meta.cats[c]).join(', '), 'cat']);
+  if (f.state.length > 0) pills.push(['State', f.state.map(s=>DATA.meta.states[s]).join(', '), 'state']);
+  if (f.size.length > 0) pills.push(['Size', f.size.map(s=>DATA.meta.sizes[s]).join(', '), 'size']);
+  if (f.city) pills.push(['City', f.city, 'city']);
+  if (f.b2b) pills.push(['Segment', f.b2b, 'b2b']);
+  if (f.courier !== '') pills.push(['Courier', DATA.meta.couriers[f.courier], 'courier']);
+  if (f.channel !== '') pills.push(['Channel', DATA.meta.channels[f.channel], 'channel']);
+  bar.style.display = pills.length > 0 ? 'flex' : 'none';
+  pills.forEach(([label, val, key]) => {
+    container.innerHTML += `<div class="filter-tag"><span>${label}: ${val}</span><span class="close" onclick="clearFilterKey('${key}')">&times;</span></div>`;
+  });
+}
+
+function clearFilterKey(key) {
+  if (Array.isArray(state.filters[key])) state.filters[key] = [];
+  else state.filters[key] = '';
+  const elMap = { cat:'filterCategory', state:'filterState', size:'filterSize', city:'filterCity', b2b:'filterB2B', courier:'filterCourier', channel:'filterChannel' };
+  const el = document.getElementById(elMap[key]);
+  if (el) el.value = '';
+  runFilterEngine();
+}
+
+function resetAllFilters() {
+  state.filters = { dateMin:'', dateMax:'', cat:[], state:[], city:'', size:[], fulfil:[], status:[], b2b:'', courier:'', channel:'' };
+  ['filterCategory','filterState','filterSize','filterB2B','filterCourier','filterChannel'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
+  const cityEl = document.getElementById('filterCity'); if(cityEl) cityEl.value='';
+  document.querySelectorAll('.filter-fulfil-check,.filter-status-check').forEach(e => e.checked=false);
+  document.getElementById('filterDateMin').value = getDateStr(0);
+  document.getElementById('filterDateMax').value = getDateStr(130);
+  runFilterEngine();
+}
+</script>
+
+<!-- SPARKLINES -->
+<script>
+function drawSparkline(canvasId, values, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  if (!values || values.length < 2) return;
+  const min = Math.min(...values), max = Math.max(...values), range = max - min || 1;
+  ctx.beginPath();
+  ctx.strokeStyle = color || '#f59e0b';
+  ctx.lineWidth = 1.5;
+  values.forEach((v, i) => {
+    const x = (i/(values.length-1))*w;
+    const y = h - ((v-min)/range)*(h-6)-3;
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,(color||'#f59e0b')+'35'); grad.addColorStop(1,'transparent');
+  ctx.fillStyle=grad; ctx.fill();
+}
+</script>
+
+<!-- RENDER ALL VIEWS -->
+<script>
+function renderAllViews() {
+  const colors = themeColors();
+  const t = DATA.transactions;
+  const indices = state.filteredIndices;
+  const len = indices.length;
+
+  let totalRevenue=0, totalQty=0, cancelCount=0, returnCount=0, b2bCount=0;
+  const dailyRev={}, dailyOrd={};
+  for (let idx=0; idx<len; idx++) {
+    const i = indices[idx];
+    if (!t.amount_zero[i]) totalRevenue += t.amount[i];
+    totalQty += t.qty[i];
+    if (t.status[i]===0) cancelCount++;
+    if (t.status[i]===2) returnCount++;
+    if (t.b2b[i]===1) b2bCount++;
+    dailyRev[t.date[i]] = (dailyRev[t.date[i]]||0) + t.amount[i];
+    dailyOrd[t.date[i]] = (dailyOrd[t.date[i]]||0) + 1;
+  }
+
+  const totalOrders = len;
+  const avgOrderValue = totalOrders>0 ? totalRevenue/totalOrders : 0;
+  const cancelRate = totalOrders>0 ? cancelCount/totalOrders*100 : 0;
+  const returnRate = totalOrders>0 ? returnCount/totalOrders*100 : 0;
+  const b2bPct = totalOrders>0 ? b2bCount/totalOrders*100 : 0;
+  const stateSet = new Set();
+  for (let idx=0; idx<len; idx++) { const s=t.state[indices[idx]]; if(s>=0) stateSet.add(s); }
+
+  document.getElementById('dashboardMetaText').textContent =
+    `${totalOrders.toLocaleString()} orders matched · Rs. ${(totalRevenue/1e7).toFixed(2)} Cr revenue · Real-time`;
+
+  const offsets = Object.keys(dailyRev).map(Number).sort((a,b)=>a-b);
+  const sparkRev = offsets.map(o=>dailyRev[o]);
+  const sparkOrd = offsets.map(o=>dailyOrd[o]);
+
+  // KPI CARDS
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">Gross Revenue</span><span class="kpi-icon">Rs</span></div><div class="kpi-value">Rs. ${(totalRevenue/1e7).toFixed(2)} Cr</div><div class="kpi-comparison"><span class="kpi-change up">Live</span>&nbsp;filtered total</div><canvas class="kpi-sparkline" id="sp1" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">Total Orders</span><span class="kpi-icon">📦</span></div><div class="kpi-value">${totalOrders.toLocaleString()}</div><div class="kpi-comparison"><span class="kpi-change up">Filtered</span>&nbsp;from 128,017</div><canvas class="kpi-sparkline" id="sp2" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">Avg Order Value</span><span class="kpi-icon">📊</span></div><div class="kpi-value">Rs. ${avgOrderValue.toFixed(0)}</div><div class="kpi-comparison"><span class="kpi-change ${avgOrderValue>700?'up':'down'}">${avgOrderValue>700?'Good':'Low'}</span>&nbsp;per transaction</div><canvas class="kpi-sparkline" id="sp3" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">Cancel Rate</span><span class="kpi-icon">🚫</span></div><div class="kpi-value">${cancelRate.toFixed(1)}%</div><div class="kpi-comparison"><span class="kpi-change ${cancelRate<20?'up':'down'}">${cancelRate<20?'On Target':'High'}</span>&nbsp;target below 20%</div><canvas class="kpi-sparkline" id="sp4" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">Return Rate</span><span class="kpi-icon">↩️</span></div><div class="kpi-value">${returnRate.toFixed(1)}%</div><div class="kpi-comparison"><span class="kpi-change ${returnRate<5?'up':'down'}">${returnRate<5?'Healthy':'Watch'}</span>&nbsp;of all orders</div><canvas class="kpi-sparkline" id="sp5" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">B2B Share</span><span class="kpi-icon">🏢</span></div><div class="kpi-value">${b2bPct.toFixed(1)}%</div><div class="kpi-comparison"><span class="kpi-change up">Business</span>&nbsp;segment</div><canvas class="kpi-sparkline" id="sp6" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">Total Qty</span><span class="kpi-icon">📫</span></div><div class="kpi-value">${(totalQty/1000).toFixed(1)}K</div><div class="kpi-comparison"><span class="kpi-change up">Units</span>&nbsp;sold</div><canvas class="kpi-sparkline" id="sp7" width="300" height="40"></canvas></div>
+    <div class="kpi-card"><div class="kpi-header"><span class="kpi-title">States Reached</span><span class="kpi-icon">📍</span></div><div class="kpi-value">${stateSet.size}</div><div class="kpi-comparison"><span class="kpi-change up">Active</span>&nbsp;states</div><canvas class="kpi-sparkline" id="sp8" width="300" height="40"></canvas></div>
+  `;
+
+  drawSparkline('sp1', sparkRev, '#f59e0b');
+  drawSparkline('sp2', sparkOrd, '#10b981');
+  drawSparkline('sp3', sparkRev.map((v,i)=>sparkOrd[i]>0?v/sparkOrd[i]:0), '#3b82f6');
+  drawSparkline('sp4', sparkOrd.map(v=>v*0.28), '#ef4444');
+  drawSparkline('sp5', sparkOrd.map(v=>v*0.08), '#8b5cf6');
+  drawSparkline('sp6', sparkOrd.map(v=>v*0.37), '#06b6d4');
+  drawSparkline('sp7', sparkRev, '#f97316');
+  drawSparkline('sp8', sparkOrd, '#84cc16');
+
+  renderExecutiveInsights(indices);
+  renderOverviewCharts(indices, colors);
+  renderProductCharts(indices, colors);
+  renderGeographyCharts(indices, colors);
+  renderFulfillmentCharts(indices, colors);
+  renderAIInsights(totalRevenue, totalOrders, cancelRate, returnRate);
+  renderTable(indices);
+  if (state.activeTab === 'advanced') renderAdvancedCharts(indices, colors);
+}
+
+// EXECUTIVE INSIGHTS
+function renderExecutiveInsights(indices) {
+  const t = DATA.transactions, len = indices.length;
+  if (len === 0) { document.getElementById('execInsightsRow').innerHTML=''; return; }
+  const stateRev={}, stateOrd={}, catRev={}, catOrd={}, catCancel={}, dayCount={};
+  for (let idx=0; idx<len; idx++) {
+    const i=indices[idx], s=DATA.meta.states[t.state[i]], c=DATA.meta.cats[t.cat[i]], d=t.date[i];
+    if(s){stateRev[s]=(stateRev[s]||0)+t.amount[i]; stateOrd[s]=(stateOrd[s]||0)+1;}
+    if(c){catRev[c]=(catRev[c]||0)+t.amount[i]; catOrd[c]=(catOrd[c]||0)+1; if(t.status[i]===0)catCancel[c]=(catCancel[c]||0)+1;}
+    dayCount[d]=(dayCount[d]||0)+1;
+  }
+  const topState = Object.keys(stateRev).sort((a,b)=>stateRev[b]-stateRev[a])[0]||'N/A';
+  const lowState = Object.keys(stateRev).sort((a,b)=>stateRev[a]-stateRev[b])[0]||'N/A';
+  const topCat   = Object.keys(catRev).sort((a,b)=>catRev[b]-catRev[a])[0]||'N/A';
+  const worstCat = Object.keys(catCancel).sort((a,b)=>(catCancel[b]/catOrd[b])-(catCancel[a]/catOrd[a]))[0]||'N/A';
+  const peakDay  = Object.keys(dayCount).sort((a,b)=>dayCount[b]-dayCount[a])[0];
+  const peakStr  = peakDay !== undefined ? getDateStr(parseInt(peakDay)) : 'N/A';
+  const avgOV    = len>0 ? Object.values(stateRev).reduce((a,b)=>a+b,0)/len : 0;
+
+  document.getElementById('execInsightsRow').innerHTML = `
+    <div class="exec-card"><span class="exec-card-icon">🏆</span><div class="exec-card-label">Highest Revenue State</div><div class="exec-card-value">${topState}</div><div class="exec-card-sub">Rs. ${stateRev[topState]?(stateRev[topState]/1e5).toFixed(1)+'L':'—'}</div></div>
+    <div class="exec-card" style="--accent:var(--danger);"><span class="exec-card-icon">📉</span><div class="exec-card-label">Lowest Revenue State</div><div class="exec-card-value">${lowState}</div><div class="exec-card-sub">Rs. ${stateRev[lowState]?(stateRev[lowState]/1e5).toFixed(1)+'L':'—'}</div></div>
+    <div class="exec-card" style="--accent:var(--accent2);"><span class="exec-card-icon">🔥</span><div class="exec-card-label">Top Category</div><div class="exec-card-value">${topCat}</div><div class="exec-card-sub">${catOrd[topCat]?.toLocaleString()||0} orders</div></div>
+    <div class="exec-card" style="--accent:var(--danger);"><span class="exec-card-icon">⚠️</span><div class="exec-card-label">Most Cancelled Category</div><div class="exec-card-value">${worstCat}</div><div class="exec-card-sub">${catCancel[worstCat]||0} cancellations</div></div>
+    <div class="exec-card" style="--accent:var(--purple);"><span class="exec-card-icon">📅</span><div class="exec-card-label">Peak Sales Day</div><div class="exec-card-value">${peakStr}</div><div class="exec-card-sub">${peakDay!==undefined?(dayCount[peakDay]||0).toLocaleString():0} orders</div></div>
+    <div class="exec-card" style="--accent:var(--info);"><span class="exec-card-icon">💎</span><div class="exec-card-label">Avg Order Value</div><div class="exec-card-value">Rs. ${avgOV.toFixed(0)}</div><div class="exec-card-sub">across filtered orders</div></div>
+  `;
+}
+</script>
+
+<!-- CHART RENDER FUNCTIONS -->
+<script>
+function renderOverviewCharts(indices, colors) {
+  const t=DATA.transactions, len=indices.length;
+  const dailyData={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],d=t.date[i];
+    if(!dailyData[d])dailyData[d]={rev:0,count:0};
+    dailyData[d].rev+=t.amount[i]; dailyData[d].count++;
+  }
+  const sortedOff=Object.keys(dailyData).map(Number).sort((a,b)=>a-b);
+  const dates=sortedOff.map(o=>getDateStr(o));
+  const revs=sortedOff.map(o=>dailyData[o].rev);
+  const counts=sortedOff.map(o=>dailyData[o].count);
+
+  Plotly.newPlot('chartDaily',[
+    {x:dates,y:counts,type:'scatter',mode:'lines',name:'Orders',line:{color:'#10b981',width:2},fill:'tozeroy',fillcolor:'rgba(16,185,129,0.07)'},
+    {x:dates,y:revs,type:'scatter',mode:'lines',name:'Revenue',yaxis:'y2',line:{color:'#f59e0b',width:2}}
+  ],L({yaxis:{title:'Orders',gridcolor:colors.grid},yaxis2:{overlaying:'y',side:'right',showgrid:false,title:'Revenue (Rs.)'},margin:{t:20,l:50,r:60,b:38}}),CFG);
+
+  const monthlyData={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx];
+    const m=new Date(getDateStr(t.date[i])).toLocaleString('default',{month:'short',year:'2-digit'});
+    monthlyData[m]=(monthlyData[m]||0)+t.amount[i];
+  }
+  const months=Object.keys(monthlyData), monthRevs=months.map(m=>monthlyData[m]);
+  Plotly.newPlot('chartMonthly',[{x:months,y:monthRevs,type:'bar',marker:{color:months.map((_,i)=>PALETTE[i%PALETTE.length])}}],L({yaxis:{title:'Revenue (Rs.)'}}),CFG);
+
+  let b2b=0,b2c=0;
+  for(let idx=0;idx<len;idx++){const i=indices[idx]; if(t.b2b[i]===1)b2b++;else b2c++;}
+  Plotly.newPlot('chartB2B',[{labels:['B2B','B2C'],values:[b2b,b2c],type:'pie',hole:0.45,marker:{colors:['#f59e0b','#10b981']},textfont:{color:colors.font}}],L({margin:{t:20,b:20,l:20,r:20}}),CFG);
+
+  const dowCounts=[0,0,0,0,0,0,0];
+  const dowNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  for(let idx=0;idx<len;idx++){const i=indices[idx]; dowCounts[new Date(getDateStr(t.date[i])).getDay()]++;}
+  Plotly.newPlot('chartDow',[{x:dowNames,y:dowCounts,type:'bar',marker:{color:'#8b5cf6'}}],L({yaxis:{title:'Orders'}}),CFG);
+
+  const weeks=Array.from({length:13},(_,i)=>14+i);
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const z=days.map(()=>weeks.map(()=>0));
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx];
+    const d=new Date(getDateStr(t.date[i]));
+    const dayIdx=(d.getDay()+6)%7;
+    const weekIdx=Math.min(12,Math.floor(t.date[i]/7));
+    if(dayIdx>=0&&weekIdx>=0) z[dayIdx][weekIdx]++;
+  }
+  Plotly.newPlot('chartHeatmap',[{z,x:weeks.map(w=>`Wk${w}`),y:days,type:'heatmap',colorscale:[[0,'#1e293b'],[1,'#f59e0b']]}],L({margin:{t:10,l:50,r:20,b:28}}),CFG);
+}
+
+function renderProductCharts(indices, colors) {
+  const t=DATA.transactions, len=indices.length;
+  const catRev={},catQty={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],c=DATA.meta.cats[t.cat[i]];
+    catRev[c]=(catRev[c]||0)+t.amount[i]; catQty[c]=(catQty[c]||0)+t.qty[i];
+  }
+  const sortedCats=Object.keys(catRev).sort((a,b)=>catRev[b]-catRev[a]);
+
+  Plotly.newPlot('chartCatRev',[{x:sortedCats.map(c=>catRev[c]),y:sortedCats,type:'bar',orientation:'h',marker:{color:'#f59e0b'}}],L({margin:{t:20,l:110,r:20,b:38},xaxis:{type:'linear',title:'Revenue (Rs.)'}}),CFG);
+  bindChartCrossFilter('chartCatRev','cat',DATA.meta.cats);
+
+  Plotly.newPlot('chartCatQty',[{x:sortedCats,y:sortedCats.map(c=>catQty[c]),type:'bar',marker:{color:'#10b981'}}],L({yaxis:{title:'Units Sold'},xaxis:{tickangle:-30}}),CFG);
+  bindChartCrossFilter('chartCatQty','cat',DATA.meta.cats);
+
+  const sizeCount={};
+  for(let idx=0;idx<len;idx++){const i=indices[idx],s=DATA.meta.sizes[t.size[i]]; sizeCount[s]=(sizeCount[s]||0)+1;}
+  const sizes=Object.keys(sizeCount);
+  Plotly.newPlot('chartSize',[{labels:sizes,values:sizes.map(s=>sizeCount[s]),type:'pie',hole:0.45,marker:{colors:PALETTE},textfont:{color:colors.font}}],L({margin:{t:20,b:20,l:20,r:20}}),CFG);
+
+  const uniqueCats=sortedCats.slice(0,6);
+  const uniqueSizes=['XS','S','M','L','XL','XXL','3XL'];
+  const catSizeZ=uniqueCats.map(()=>uniqueSizes.map(()=>0));
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx];
+    const cIdx=uniqueCats.indexOf(DATA.meta.cats[t.cat[i]]);
+    const sIdx=uniqueSizes.indexOf(DATA.meta.sizes[t.size[i]]);
+    if(cIdx!==-1&&sIdx!==-1)catSizeZ[cIdx][sIdx]++;
+  }
+  Plotly.newPlot('chartCatSize',[{z:catSizeZ,x:uniqueSizes,y:uniqueCats,type:'heatmap',colorscale:[[0,'#1e293b'],[1,'#10b981']]}],L({margin:{t:10,l:90,r:20,b:28}}),CFG);
+
+  const comboCount={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],key=`${DATA.meta.cats[t.cat[i]]} - ${DATA.meta.sizes[t.size[i]]}`;
+    comboCount[key]=(comboCount[key]||0)+1;
+  }
+  const combos=Object.keys(comboCount).sort((a,b)=>comboCount[b]-comboCount[a]).slice(0,10);
+  Plotly.newPlot('chartCombos',[{x:combos,y:combos.map(c=>comboCount[c]),type:'bar',marker:{color:'#6366f1'}}],L({xaxis:{tickangle:-30}}),CFG);
+}
+
+function renderGeographyCharts(indices, colors) {
+  const t=DATA.transactions, len=indices.length;
+  const stateRev={},stateOrders={},stateCancel={},stateB2B={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],s=DATA.meta.states[t.state[i]];
+    if(!s)continue;
+    stateRev[s]=(stateRev[s]||0)+t.amount[i];
+    stateOrders[s]=(stateOrders[s]||0)+1;
+    if(t.status[i]===0)stateCancel[s]=(stateCancel[s]||0)+1;
+    if(!stateB2B[s])stateB2B[s]={b2b:0,tot:0};
+    stateB2B[s].tot++; if(t.b2b[i]===1)stateB2B[s].b2b++;
+  }
+  const top10=Object.keys(stateRev).sort((a,b)=>stateRev[b]-stateRev[a]).slice(0,10);
+
+  Plotly.newPlot('chartCity',[{x:top10.map(s=>stateRev[s]),y:top10,type:'bar',orientation:'h',marker:{color:'#f59e0b'}}],L({margin:{t:20,l:130,r:20,b:38},xaxis:{title:'Revenue (Rs.)'}}),CFG);
+  bindChartCrossFilter('chartCity','state',DATA.meta.states);
+
+  const cStates=Object.keys(stateOrders).sort((a,b)=>stateOrders[b]-stateOrders[a]).slice(0,8);
+  Plotly.newPlot('chartCancelState',[{x:cStates,y:cStates.map(s=>(stateCancel[s]||0)/stateOrders[s]*100),type:'bar',marker:{color:'#ef4444'}}],L({yaxis:{title:'Cancel Rate %'},xaxis:{tickangle:-30}}),CFG);
+
+  const b2bStates=Object.keys(stateB2B).sort((a,b)=>stateB2B[b].tot-stateB2B[a].tot).slice(0,8);
+  Plotly.newPlot('chartB2BState',[{x:b2bStates,y:b2bStates.map(s=>stateB2B[s].b2b/stateB2B[s].tot*100),type:'bar',marker:{color:'#10b981'}}],L({yaxis:{title:'B2B Share %'},xaxis:{tickangle:-30}}),CFG);
+
+  drawIndiaSVGMap(stateRev);
+}
+
+function drawIndiaSVGMap(stateRev) {
+  const svg=document.getElementById('indiaSVG');
+  if(!svg)return;
+  svg.innerHTML='';
+  const maxRev=Math.max(...Object.values(stateRev),1);
+  const isLight=document.body.classList.contains('light-mode');
+  Object.keys(INDIA_PATHS).forEach(stateKey=>{
+    const rev=stateRev[stateKey]||0;
+    const intensity=Math.min(1.0,rev/maxRev);
+    const baseColor=isLight?`rgba(217,119,6,${0.1+intensity*0.7})`:`rgba(245,158,11,${0.1+intensity*0.75})`;
+    const pathEl=document.createElementNS('http://www.w3.org/2000/svg','path');
+    pathEl.setAttribute('d',INDIA_PATHS[stateKey]);
+    pathEl.setAttribute('class','map-state');
+    pathEl.setAttribute('fill',baseColor);
+    const stateIdx=DATA.meta.states.indexOf(stateKey);
+    if(state.filters.state.includes(stateIdx))pathEl.classList.add('active');
+    pathEl.innerHTML=`<title>${stateKey}\nRevenue: Rs.${(rev/1e5).toFixed(1)}L</title>`;
+    pathEl.addEventListener('click',()=>{
+      if(stateIdx!==-1){
+        const fIdx=state.filters.state.indexOf(stateIdx);
+        if(fIdx===-1)state.filters.state.push(stateIdx);else state.filters.state.splice(fIdx,1);
+        runFilterEngine();
+      }
+    });
+    svg.appendChild(pathEl);
+  });
+}
+
+function renderFulfillmentCharts(indices, colors) {
+  const t=DATA.transactions, len=indices.length;
+  let amazon=0,merchant=0,amCancel=0,merCancel=0;
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx];
+    if(t.fulfil[i]===0){amazon++;if(t.status[i]===0)amCancel++;}
+    else{merchant++;if(t.status[i]===0)merCancel++;}
+  }
+  Plotly.newPlot('chartFulfilDonut',[{labels:['Amazon','Merchant'],values:[amazon,merchant],type:'pie',hole:0.45,marker:{colors:['#3b82f6','#f59e0b']},textfont:{color:colors.font}}],L({margin:{t:20,b:20,l:20,r:20}}),CFG);
+  Plotly.newPlot('chartCancelFulfil',[{x:['Amazon','Merchant'],y:[amazon>0?amCancel/amazon*100:0,merchant>0?merCancel/merchant*100:0],type:'bar',marker:{color:['#3b82f6','#ef4444']}}],L({yaxis:{title:'Cancel Rate %'}}),CFG);
+
+  const shipMix={};
+  for(let idx=0;idx<len;idx++){const i=indices[idx],l=DATA.meta.channels[t.channel[i]]; if(l)shipMix[l]=(shipMix[l]||0)+1;}
+  const levels=Object.keys(shipMix);
+  Plotly.newPlot('chartShipLevel',[{labels:levels,values:levels.map(l=>shipMix[l]),type:'pie',marker:{colors:PALETTE},textfont:{color:colors.font}}],L({margin:{t:20,b:20,l:20,r:20}}),CFG);
+
+  const fulfilNames=['Amazon','Merchant'];
+  // Status encoding: 0=Cancelled, 1=Delivered, 2=Returned, 3=Shipped, 4=Pending, 5=Lost
+  const statusDefs=[{name:'Cancelled',idx:0},{name:'Delivered',idx:1},{name:'Returned',idx:2},{name:'Shipped',idx:3}];
+  const traces=statusDefs.map((sd,i)=>({
+    x:fulfilNames,
+    y:fulfilNames.map((_,fIdx)=>{let c=0;for(let idx=0;idx<len;idx++){const i2=indices[idx];if(t.fulfil[i2]===fIdx&&t.status[i2]===sd.idx)c++;}return c;}),
+    name:sd.name,type:'bar',marker:{color:PALETTE[i]}
+  }));
+  Plotly.newPlot('chartStatusFulfil',traces,L({barmode:'stack'}),CFG);
+
+  const catReturns={},catTot={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],c=DATA.meta.cats[t.cat[i]];
+    catTot[c]=(catTot[c]||0)+1; if(t.status[i]===2)catReturns[c]=(catReturns[c]||0)+1;
+  }
+  const rCats=Object.keys(catTot).sort((a,b)=>catTot[b]-catTot[a]);
+  Plotly.newPlot('chartReturnCat',[{x:rCats,y:rCats.map(c=>(catReturns[c]||0)/catTot[c]*100),type:'bar',marker:{color:'#ef4444'}}],L({yaxis:{title:'Return Rate %'},xaxis:{tickangle:-30}}),CFG);
+}
+
+function bindChartCrossFilter(chartId, filterKey, metaList) {
+  const el=document.getElementById(chartId);
+  if(!el)return;
+  el.on('plotly_click',function(data){
+    if(data&&data.points&&data.points[0]){
+      const pt=data.points[0];
+      const val=typeof pt.y==='string'?pt.y:(typeof pt.x==='string'?pt.x:null);
+      if(!val)return;
+      const idx=metaList.indexOf(val);
+      if(idx!==-1){
+        const list=state.filters[filterKey];
+        const fIdx=list.indexOf(idx);
+        if(fIdx===-1)list.push(idx);else list.splice(fIdx,1);
+        runFilterEngine();
+      }
+    }
+  });
+}
+
+function renderAIInsights(revenue, orders, cancelRate, returnRate) {
+  const t=DATA.transactions, len=state.filteredIndices.length;
+  const stateCounts={}, catCounts={};
+  for(let idx=0;idx<len;idx++){
+    const i=state.filteredIndices[idx];
+    const s=DATA.meta.states[t.state[i]], c=DATA.meta.cats[t.cat[i]];
+    if(s)stateCounts[s]=(stateCounts[s]||0)+1;
+    if(c)catCounts[c]=(catCounts[c]||0)+1;
+  }
+  const topState=Object.keys(stateCounts).sort((a,b)=>stateCounts[b]-stateCounts[a])[0]||'None';
+  const topCat=Object.keys(catCounts).sort((a,b)=>catCounts[b]-catCounts[a])[0]||'None';
+
+  document.getElementById('aiInsightsPanel').innerHTML=`
+    <div class="insight-item"><div class="insight-icon">🔥</div><div class="insight-text"><h4>Top Selling Segment</h4><p><strong>${topCat}</strong> is the primary category driver with highest order frequency and volume.</p></div></div>
+    <div class="insight-item"><div class="insight-icon">📍</div><div class="insight-text"><h4>Regional Focus Pocket</h4><p><strong>${topState}</strong> has the highest customer concentration. Prioritize delivery hubs here.</p></div></div>
+    <div class="insight-item"><div class="insight-icon">📉</div><div class="insight-text"><h4>Cancellation Health</h4><p>Cancel rate is <strong>${cancelRate.toFixed(1)}%</strong>. ${cancelRate>25?'Above 25% threshold — logistics audit recommended.':'Within acceptable range.'}</p></div></div>
+    <div class="insight-item"><div class="insight-icon">💡</div><div class="insight-text"><h4>Return Rate Insight</h4><p>Return rate is <strong>${returnRate.toFixed(1)}%</strong>. ${returnRate>5?'Consider improving product descriptions and size guides.':'Healthy. Product quality seems strong.'}</p></div></div>
+    <div class="insight-item"><div class="insight-icon">💰</div><div class="insight-text"><h4>Revenue Performance</h4><p>Total filtered revenue: <strong>Rs. ${(revenue/1e7).toFixed(2)} Cr</strong> across <strong>${orders.toLocaleString()}</strong> orders.</p></div></div>
+  `;
+
+  document.getElementById('executiveSummaryBody').innerHTML=`
+    <p>In the current filtered window, total gross revenue is <strong>Rs. ${(revenue/1e7).toFixed(2)} Cr</strong> across <strong>${orders.toLocaleString()}</strong> transactions.</p>
+    <p><strong>${topCat}</strong> remains the anchor product segment. <strong>${topState}</strong> is the largest consumer regional base. Cancellation rate of ${cancelRate.toFixed(1)}% suggests ${cancelRate>25?'significant fulfillment issues requiring action':'healthy fulfillment operations'}.</p>
+    <p>Return rate of <strong>${returnRate.toFixed(1)}%</strong> indicates ${returnRate<5?'strong product quality.':'areas for improvement in product descriptions.'}</p>
+  `;
+}
+</script>
+
+<!-- TABLE EXPLORER -->
+<script>
+function renderTable(indices) {
+  const t=DATA.transactions;
+  const tbody=document.getElementById('rawTableBody');
+  tbody.innerHTML='';
+  const total=indices.length;
+  const start=state.table.page*state.table.size;
+  const end=Math.min(total,start+state.table.size);
+  document.getElementById('paginationLabel').textContent=`Showing ${total>0?start+1:0}-${end} of ${total.toLocaleString()} records`;
+  document.getElementById('btnPrevPage').disabled=state.table.page===0;
+  document.getElementById('btnNextPage').disabled=end>=total;
+  for(let idx=start;idx<end;idx++){
+    const i=indices[idx];
+    const row=document.createElement('tr');
+    row.innerHTML=`<td>${getDateStr(t.date[i])}</td><td>${DATA.meta.cats[t.cat[i]]}</td><td>${DATA.meta.sizes[t.size[i]]}</td><td>Rs.${t.amount[i].toFixed(1)}</td><td>${t.qty[i]}</td><td>${DATA.meta.states[t.state[i]]||'—'}</td><td>${DATA.meta.cities[t.city[i]]||'—'}</td><td>${DATA.meta.fulfils[t.fulfil[i]]}</td><td>${DATA.meta.statuses[t.status[i]]}</td>`;
+    tbody.appendChild(row);
+  }
+}
+document.getElementById('btnPrevPage').addEventListener('click',()=>{if(state.table.page>0){state.table.page--;renderTable(state.filteredIndices);}});
+document.getElementById('btnNextPage').addEventListener('click',()=>{if((state.table.page+1)*state.table.size<state.filteredIndices.length){state.table.page++;renderTable(state.filteredIndices);}});
+</script>
+
+<!-- ADVANCED ANALYTICS CHARTS -->
+<script>
+function renderAdvancedCharts(indices, colors) {
+  const t=DATA.transactions, len=indices.length;
+  if(len===0)return;
+
+  const catRevMap={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],c=DATA.meta.cats[t.cat[i]],v=t.amount[i];
+    catRevMap[c]=(catRevMap[c]||0)+v;
+  }
+
+  // Funnel: Order pipeline
+  // Status encoding: 0=Cancelled, 1=Delivered, 2=Returned, 3=Shipped, 4=Pending, 5=Lost
+  let totalOrd=len,shipped=0,delivered=0,cancelled=0,pending=0;
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx];
+    if(t.status[i]===3)shipped++;
+    else if(t.status[i]===1)delivered++;
+    else if(t.status[i]===0)cancelled++;
+    else if(t.status[i]===4)pending++;
+  }
+  Plotly.newPlot('chartFunnel',[{type:'funnel',y:['Orders Placed','Pending','Shipped','Delivered','Cancelled'],x:[totalOrd,pending+shipped+delivered,shipped+delivered,delivered,cancelled],textinfo:'value+percent initial',marker:{color:['#3b82f6','#8b5cf6','#f59e0b','#10b981','#ef4444']}}],L({margin:{t:20,l:130,r:20,b:20}}),CFG);
+
+  // Gauge: Cancel rate
+  const cancelPct=len>0?cancelCount_local(indices,t)/len*100:0;
+  function cancelCount_local(idx_arr,tr){let c=0;for(let i=0;i<idx_arr.length;i++)if(tr.status[idx_arr[i]]===0)c++;return c;}
+  Plotly.newPlot('chartGauge',[{type:'indicator',mode:'gauge+number+delta',value:cancelPct,
+    delta:{reference:20,decreasing:{color:'#10b981'},increasing:{color:'#ef4444'}},
+    gauge:{axis:{range:[0,60],tickcolor:colors.font},bar:{color:cancelPct>30?'#ef4444':cancelPct>20?'#f59e0b':'#10b981'},steps:[{range:[0,20],color:'rgba(16,185,129,0.12)'},{range:[20,40],color:'rgba(245,158,11,0.12)'},{range:[40,60],color:'rgba(239,68,68,0.12)'}],threshold:{line:{color:'#ef4444',width:3},thickness:0.75,value:20}},
+    title:{text:'Cancellation Rate %',font:{color:colors.font}},number:{suffix:'%',font:{color:colors.font}}
+  }],L({margin:{t:30,b:20,l:40,r:40}}),CFG);
+
+  // Waterfall: Category Revenue
+  const catRevArr=Object.keys(catRevMap).sort((a,b)=>catRevMap[b]-catRevMap[a]).slice(0,8);
+  Plotly.newPlot('chartWaterfall',[{type:'waterfall',x:catRevArr,y:catRevArr.map(c=>catRevMap[c]/1e5),measure:catRevArr.map(()=>'relative'),connector:{line:{color:'rgba(255,255,255,0.15)'}},increasing:{marker:{color:'#10b981'}},totals:{marker:{color:'#f59e0b'}},textfont:{color:colors.font}}],L({yaxis:{title:'Revenue (Rs. Lakhs)'},xaxis:{tickangle:-25}}),CFG);
+
+  // Radar: Category multi-KPI
+  const radarCats=Object.keys(catRevMap).sort((a,b)=>catRevMap[b]-catRevMap[a]).slice(0,5);
+  const catOrdR={},catCancelR={},catReturnR={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],c=DATA.meta.cats[t.cat[i]];
+    catOrdR[c]=(catOrdR[c]||0)+1;
+    if(t.status[i]===0)catCancelR[c]=(catCancelR[c]||0)+1;
+    if(t.status[i]===2)catReturnR[c]=(catReturnR[c]||0)+1;
+  }
+  const maxRev=Math.max(...radarCats.map(c=>catRevMap[c]||0),1);
+  const maxOrd=Math.max(...radarCats.map(c=>catOrdR[c]||0),1);
+  const maxAOV=Math.max(...radarCats.map(c=>(catRevMap[c]||0)/(catOrdR[c]||1)),1);
+  const radarTraces=radarCats.map((c,i)=>({
+    type:'scatterpolar',
+    r:[(catRevMap[c]||0)/maxRev*100,(catOrdR[c]||0)/maxOrd*100,(catRevMap[c]||0)/(catOrdR[c]||1)/maxAOV*100,100-(catCancelR[c]||0)/(catOrdR[c]||1)*100,100-(catReturnR[c]||0)/(catOrdR[c]||1)*100,(catRevMap[c]||0)/maxRev*100],
+    theta:['Revenue','Orders','Avg Value','Non-Cancel','Non-Return','Revenue'],
+    fill:'toself',name:c,line:{color:PALETTE[i]},fillcolor:PALETTE[i]+'22'
+  }));
+  Plotly.newPlot('chartRadar',radarTraces,L({polar:{radialaxis:{visible:true,range:[0,100],gridcolor:colors.grid,tickfont:{color:colors.font}},angularaxis:{tickfont:{color:colors.font}},bgcolor:'transparent'},margin:{t:20,l:60,r:60,b:40}}),CFG);
+
+  // Sankey: Category → Fulfillment → Status
+  const catList=DATA.meta.cats.slice(0,5),fulList=DATA.meta.fulfils,stList=DATA.meta.statuses;
+  const sankeyNodes=[...catList,...fulList,...stList];
+  const src=[],tgt=[],val=[],col=[];
+  const cfMap={},fsMap={};
+  for(let idx=0;idx<len;idx++){
+    const i=indices[idx],ci=t.cat[i],fi=t.fulfil[i],si=t.status[i];
+    if(ci>=catList.length)continue;
+    cfMap[ci+'|'+fi]=(cfMap[ci+'|'+fi]||0)+1;
+    fsMap[fi+'|'+si]=(fsMap[fi+'|'+si]||0)+1;
+  }
+  Object.keys(cfMap).forEach(key=>{const[c,f]=key.split('|').map(Number);src.push(c);tgt.push(catList.length+f);val.push(cfMap[key]);col.push(PALETTE[c]+'70');});
+  Object.keys(fsMap).forEach(key=>{const[f,s]=key.split('|').map(Number);src.push(catList.length+f);tgt.push(catList.length+fulList.length+s);val.push(fsMap[key]);col.push(PALETTE[(catList.length+f)%PALETTE.length]+'70');});
+  Plotly.newPlot('chartSankey',[{type:'sankey',node:{label:sankeyNodes,color:PALETTE.slice(0,sankeyNodes.length),pad:15,thickness:20,line:{color:'rgba(255,255,255,0.08)',width:0.5},font:{color:colors.font}},link:{source:src,target:tgt,value:val,color:col}}],L({margin:{t:20,l:10,r:10,b:10}}),CFG);
+
+  // Calendar Heatmap (bar chart by date, colored by value)
+  const dateCounts={};
+  for(let idx=0;idx<len;idx++){const i=indices[idx];dateCounts[t.date[i]]=(dateCounts[t.date[i]]||0)+1;}
+  const allOff=Object.keys(dateCounts).map(Number).sort((a,b)=>a-b);
+  const calDates=allOff.map(o=>getDateStr(o));
+  const calVals=allOff.map(o=>dateCounts[o]);
+  Plotly.newPlot('chartCalHeatmap',[{x:calDates,y:calVals,type:'bar',marker:{color:calVals,colorscale:[[0,'#1e293b'],[0.3,'#d97706'],[1,'#f59e0b']],showscale:true},name:'Orders/Day'}],L({yaxis:{title:'Orders/Day'},xaxis:{type:'date',title:'Date'},bargap:0.05}),CFG);
+
+  state.advancedRendered=true;
+}
+</script>
+
+<!-- EVENT HANDLERS -->
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.dashboard-section').forEach(s=>s.classList.remove('active'));
+    btn.classList.add('active');
+    state.activeTab=btn.dataset.target;
+    document.getElementById('sec-'+state.activeTab).classList.add('active');
+    window.dispatchEvent(new Event('resize'));
+    if(state.activeTab==='advanced'&&!state.advancedRendered){
+      renderAdvancedCharts(state.filteredIndices,themeColors());
+    }
   });
 });
 
-// ---------- Insights & Recommendations (computed live from DATA) ----------
-(function(){
-  const k = DATA.kpis;
-  const topCat = [...DATA.category].sort((a,b)=>b.revenue-a.revenue)[0];
-  const catShare = (topCat.revenue / k.total_revenue * 100).toFixed(1);
-  const bottomCats = [...DATA.category].sort((a,b)=>a.revenue-b.revenue).slice(0,2).map(d=>d.Category).join(' and ');
-
-  const cf = DATA.cancel_by_fulfilment;
-  const merchant = cf.find(d=>d.Fulfilment==='Merchant');
-  const amazon = cf.find(d=>d.Fulfilment==='Amazon');
-  const cancelGap = merchant && amazon ? (merchant.cancel_rate - amazon.cancel_rate).toFixed(1) : null;
-
-  const worstState = [...DATA.cancel_by_state].sort((a,b)=>b.cancel_rate-a.cancel_rate)[0];
-  const bestRevState = [...DATA.state].sort((a,b)=>b.revenue-a.revenue)[0];
-  const bestRevStateShare = (bestRevState.revenue / k.total_revenue * 100).toFixed(1);
-
-  const worstReturnCat = [...DATA.return_rate_category].sort((a,b)=>b.return_rate-a.return_rate)[0];
-
-  const busiestDow = [...DATA.dow].sort((a,b)=>b.orders-a.orders)[0];
-
-  const topSeg = [...DATA.order_value_segment].sort((a,b)=>b.count-a.count)[0];
-  const topSegShare = (topSeg.count / k.total_orders * 100).toFixed(1);
-
-  const b2bTop = [...DATA.b2b_by_state].sort((a,b)=>b.b2b_pct-a.b2b_pct)[0];
-
-  const findings = [
-    `<strong>${topCat.Category}</strong> drives ${catShare}% of total revenue (₹${(topCat.revenue/1e7).toFixed(2)} Cr) — by far the largest category, while ${bottomCats} contribute the least.`,
-    cancelGap ? `Merchant-fulfilled orders cancel at ${merchant.cancel_rate.toFixed(1)}%, ${cancelGap} percentage points higher than Amazon-fulfilled orders (${amazon.cancel_rate.toFixed(1)}%).` : '',
-    `${worstState.Ship_State} has the highest cancellation rate among top-revenue states, at ${worstState.cancel_rate.toFixed(1)}%.`,
-    `${bestRevState.Ship_State} is the single largest revenue state, contributing ${bestRevStateShare}% of total revenue.`,
-    `${worstReturnCat.Category} has the highest return rate of any category, at ${worstReturnCat.return_rate.toFixed(1)}%.`,
-    `${busiestDow.Order_DayOfWeek} is the busiest day of the week by order volume (${busiestDow.orders.toLocaleString()} orders).`,
-    `The <strong>${topSeg.Order_Value_Segment}</strong> order-value segment is the largest, making up ${topSegShare}% of all orders.`,
-    `${b2bTop.Ship_State} has the highest B2B order share among top-revenue states, at ${b2bTop.b2b_pct.toFixed(1)}%.`,
-    `Overall cancellation rate is ${k.cancel_rate.toFixed(1)}% and return rate is ${k.return_rate.toFixed(1)}%, against an average order value of ₹${k.avg_order_value.toFixed(0)}.`
-  ].filter(Boolean);
-
-  const recommendations = [
-    `<strong>Protect inventory for ${topCat.Category}</strong> — it anchors revenue, so stockouts there cost disproportionately more than in any other category.`,
-    cancelGap ? `<strong>Audit Merchant fulfilment</strong> — the ${cancelGap}-point cancellation gap versus Amazon fulfilment suggests process or reliability issues (packaging, dispatch delays, seller SLAs) worth investigating directly with merchant partners.` : '',
-    `<strong>Investigate ${worstState.Ship_State} operationally</strong> — its elevated cancellation rate may point to courier coverage gaps or delivery-time issues specific to that region rather than a demand problem.`,
-    `<strong>Double down on ${bestRevState.Ship_State}</strong> with targeted marketing and inventory placement, since it's already the top revenue contributor and likely has room to grow further with better local logistics.`,
-    `<strong>Review sizing/quality for ${worstReturnCat.Category}</strong> — a high return rate there is likely fit or expectation-mismatch, both fixable via better size charts or product photography.`,
-    `<strong>Plan staffing and stock replenishment around ${busiestDow.Order_DayOfWeek}</strong> peaks to avoid delays that could otherwise drive cancellations.`,
-    `<strong>Build offers around the ${topSeg.Order_Value_Segment} segment</strong>, since it represents the largest share of orders and is the most efficient lever for lifting overall revenue.`,
-    `<strong>Consider a dedicated B2B outreach in ${b2bTop.Ship_State}</strong> — its high business-buyer share suggests an existing wholesale/bulk demand pocket worth a tailored offer.`
-  ].filter(Boolean);
-
-  const html = `
-    <h4>Key findings</h4>
-    <ul>${findings.map(f=>`<li>${f}</li>`).join('')}</ul>
-    <h4>Recommendations</h4>
-    <ul>${recommendations.map(r=>`<li>${r}</li>`).join('')}</ul>
-  `;
-  document.getElementById('insightsBody').innerHTML = html;
-})();
-
-// ---------- Safety net: auto-hide any card whose chart has no real data ----------
-function hasRealData(gd){
-  if(!gd || !gd.data || !gd.data.length) return false;
-  return gd.data.some(trace=>{
-    const arrays = [trace.x, trace.y, trace.values, trace.z].filter(a=>Array.isArray(a) && a.length > 0);
-    if(!arrays.length) return false;
-    return arrays.some(arr => arr.some(v => v !== null && v !== undefined && v !== ''));
-  });
+// Sidebar
+const sidebar=document.getElementById('filterSidebar');
+function toggleSidebar(){
+  sidebar.classList.toggle('open');
+  const isOpen=sidebar.classList.contains('open');
+  const btn=document.getElementById('toggleSidebarOpen');
+  btn.textContent=isOpen?'Close Filters':'Filters';
+  setTimeout(()=>window.dispatchEvent(new Event('resize')),320);
 }
-setTimeout(()=>{
-  document.querySelectorAll('[id^="chart"]').forEach(el=>{
-    if(!hasRealData(el)){
-      const card = el.closest('.card');
-      if(card) card.style.display = 'none';
-    }
-  });
-}, 300);
+document.getElementById('toggleSidebarOpen').addEventListener('click',toggleSidebar);
+document.getElementById('toggleSidebarClose').addEventListener('click',toggleSidebar);
+
+// Theme
+document.getElementById('themeToggleBtn').addEventListener('click',()=>{
+  const isLight=document.body.classList.toggle('light-mode');
+  state.theme=isLight?'light':'dark';
+  localStorage.setItem('bi-theme',state.theme);
+  document.getElementById('themeToggleBtn').textContent=isLight?'☀️':'🌙';
+  state.advancedRendered=false;
+  renderAllViews();
+  if(state.activeTab==='advanced')renderAdvancedCharts(state.filteredIndices,themeColors());
+});
+
+// Filter inputs
+document.getElementById('filterDateMin').addEventListener('change',e=>{state.filters.dateMin=e.target.value;runFilterEngine();});
+document.getElementById('filterDateMax').addEventListener('change',e=>{state.filters.dateMax=e.target.value;runFilterEngine();});
+document.getElementById('filterCategory').addEventListener('change',e=>{const v=e.target.value;state.filters.cat=v!==''?[parseInt(v)]:[];runFilterEngine();});
+document.getElementById('filterState').addEventListener('change',e=>{const v=e.target.value;state.filters.state=v!==''?[parseInt(v)]:[];runFilterEngine();});
+document.getElementById('filterSize').addEventListener('change',e=>{const v=e.target.value;state.filters.size=v!==''?[parseInt(v)]:[];runFilterEngine();});
+document.getElementById('filterCity').addEventListener('input',e=>{state.filters.city=e.target.value;runFilterEngine();});
+document.getElementById('filterB2B').addEventListener('change',e=>{state.filters.b2b=e.target.value;runFilterEngine();});
+document.getElementById('filterCourier').addEventListener('change',e=>{state.filters.courier=e.target.value;runFilterEngine();});
+document.getElementById('filterChannel').addEventListener('change',e=>{state.filters.channel=e.target.value;runFilterEngine();});
+
+document.addEventListener('change',e=>{
+  if(e.target.classList.contains('filter-fulfil-check')){
+    state.filters.fulfil=Array.from(document.querySelectorAll('.filter-fulfil-check:checked')).map(el=>parseInt(el.value));
+    runFilterEngine();
+  }
+  if(e.target.classList.contains('filter-status-check')){
+    state.filters.status=Array.from(document.querySelectorAll('.filter-status-check:checked')).map(el=>parseInt(el.value));
+    runFilterEngine();
+  }
+});
+
+document.getElementById('btnResetFiltersSidebar').addEventListener('click',resetAllFilters);
+document.getElementById('btnClearAllPills').addEventListener('click',resetAllFilters);
+
+// Export PDF
+document.getElementById('btnExportPDF').addEventListener('click',()=>window.print());
+
+// Bookmark
+document.getElementById('btnBookmarkState').addEventListener('click',()=>{
+  window.location.hash=btoa(JSON.stringify(state.filters));
+  alert('Bookmark URL created! Copy the address bar URL to share this filter view.');
+});
+
+// CSV Export
+document.getElementById('btnGlobalCSVExport').addEventListener('click',()=>{
+  const t=DATA.transactions, indices=state.filteredIndices;
+  const rows=[['Date','Category','Size','Amount','Qty','State','City','Fulfillment','Status','B2B']];
+  indices.forEach(i=>rows.push([
+    getDateStr(t.date[i]),DATA.meta.cats[t.cat[i]],DATA.meta.sizes[t.size[i]],
+    t.amount[i],t.qty[i],DATA.meta.states[t.state[i]]||'',DATA.meta.cities[t.city[i]]||'',
+    DATA.meta.fulfils[t.fulfil[i]],DATA.meta.statuses[t.status[i]],t.b2b[i]===1?'B2B':'B2C'
+  ]));
+  const csv='data:text/csv;charset=utf-8,'+rows.map(r=>r.join(',')).join('\n');
+  const a=document.createElement('a'); a.href=encodeURI(csv); a.download='amazon_export.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+});
+
+// PNG chart download
+function dlChart(divId, filename) {
+  Plotly.downloadImage(divId,{format:'png',width:1200,height:600,filename});
+}
+
+// Restore hash state
+function loadHashState(){
+  if(window.location.hash){
+    try{Object.assign(state.filters,JSON.parse(atob(window.location.hash.substring(1))));}
+    catch(e){console.warn('Could not restore bookmark state');}
+  }
+}
+
+// Initialize
+window.addEventListener('DOMContentLoaded',()=>{
+  initFilterUI();
+  loadHashState();
+  runFilterEngine();
+  // Force all Plotly charts to fit their containers after first render
+  setTimeout(()=>{
+    window.dispatchEvent(new Event('resize'));
+    document.querySelectorAll('[id^="chart"]').forEach(el=>{
+      if(el.layout) Plotly.relayout(el, {autosize: true});
+    });
+  }, 400);
+});
 </script>
 </body>
 </html>

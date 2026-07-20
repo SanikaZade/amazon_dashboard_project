@@ -1,24 +1,7 @@
 
 # Amazon Sales Executive BI Dashboard
 
-A fully interactive, browser-based Business Intelligence dashboard built on **128,017 Amazon India orders** (March – June 2022). No backend server needed — just open one HTML file and everything works.
-
----
-
-## Table of Contents
-
-1. [What This Project Does](#what-this-project-does)
-2. [Tech Stack](#tech-stack)
-3. [Project Structure](#project-structure)
-4. [How It Works — The Full Workflow](#how-it-works--the-full-workflow)
-5. [How to Run It](#how-to-run-it)
-6. [Dashboard Sections](#dashboard-sections)
-7. [Features](#features)
-8. [Dataset Details](#dataset-details)
-9. [Key Business Findings](#key-business-findings)
-10. [Customisation & Extending](#customisation--extending)
-11. [Troubleshooting](#troubleshooting)
-
+A fully interactive, browser-based Business Intelligence dashboard built on **128,017 Amazon India orders** (March – June 2022). 
 ---
 
 ## What This Project Does
@@ -154,7 +137,7 @@ pip install -r requirements.txt
 
 This installs pandas and numpy. You only need to do this once.
 
-**Step 2 — (Optional) Replace the dataset**
+**Step 2 —  the dataset**
 
 If you have a new CSV file, replace `data/amazon_clean_Data.csv` with your file. Make sure the column names match the original schema (see Dataset Details below).
 
@@ -175,7 +158,7 @@ This will:
 Open dashboard.html in your browser
 ```
 
-### Option C — Quick rebuild (template only)
+### Option C — Quick rebuild 
 
 If you only edited `dashboard_template.html` and want to apply existing data without re-reading the CSV:
 

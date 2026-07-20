@@ -336,12 +336,6 @@ python build_dashboard.py
 ```
 All charts, KPI cards, and insight text will update automatically to reflect the new data. No JavaScript changes are needed.
 
-### Deploying online
-Since `dashboard.html` is a single self-contained file, you can host it anywhere:
-- Upload to any static hosting service (GitHub Pages, Netlify, Vercel, S3)
-- Share via Google Drive or Dropbox
-- Email the file directly (recipients open it locally)
-
 ---
 
 ## Troubleshooting

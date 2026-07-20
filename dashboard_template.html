@@ -10,18 +10,20 @@
 <script src="vendor/plotly.min.js"></script>
 <style>
   :root {
-  --bg: #ffffff;
-  --panel: #f8fafc;
-  --panel-border: rgba(0,0,0,0.08);
-  --ink: #1f2937;
-  --muted: #6b7280;
+  /* The JavaScript defaults to the dark theme, so the base palette must be dark too.
+     The light palette is applied only when body.light-mode is enabled. */
+  --bg: #020617;
+  --panel: rgba(15,23,42,0.88);
+  --panel-border: rgba(255,255,255,0.10);
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
   --accent: #f59e0b;
   --accent-glow: rgba(245,158,11,0.3);
   --accent2: #10b981;
   --danger: #ef4444;
   --info: #3b82f6;
   --purple: #8b5cf6;
-  --card-shadow: 0 4px 24px rgba(0,0,0,0.15);
+  --card-shadow: 0 4px 24px rgba(0,0,0,0.32);
   --blur: blur(14px);
   --radius: 18px;
   --radius-sm: 10px;
@@ -683,7 +685,13 @@ const INDIA_PATHS = {
 <script>
 // ===== GLOBAL HELPERS =====
 const PALETTE = ['#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6','#a78bfa','#fb923c'];
-const CFG = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['pan2d','lasso2d','select2d'] };
+const CFG = {
+  responsive: true,
+  scrollZoom: true,
+  displayModeBar: 'hover',
+  displaylogo: false,
+  modeBarButtonsToRemove: ['lasso2d', 'select2d']
+};
 
 function themeColors() {
   const isLight = document.body.classList.contains('light-mode');

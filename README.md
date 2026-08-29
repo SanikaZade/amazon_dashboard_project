@@ -4,8 +4,9 @@
 A fully interactive, browser-based Business Intelligence dashboard built on 128,017 Amazon India orders (March – June 2022). 
 ---
 
-Live Dashboard - 
+Live Dashboard - https://sanikazade.github.io/amazon_dashboard_project/
 
+--- 
 This dashboard lets you explore Amazon India sales data visually and interactively — without writing a single line of code. You can:
 
 - Filter orders by date, category, state, city, size, fulfilment type, order status, and more
